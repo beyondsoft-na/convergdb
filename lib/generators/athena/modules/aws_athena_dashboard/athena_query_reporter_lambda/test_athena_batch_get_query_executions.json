@@ -1,0 +1,200 @@
+{
+    "QueryExecutions": [
+        {
+            "QueryExecutionId": "915e82d5-56ea-4579-b06f-db462a70533e",
+            "Query": "describe index",
+            "ResultConfiguration": {
+                "OutputLocation": "s3://aws-athena-query-results-692977618922-us-west-2/Unsaved/2017/11/21/915e82d5-56ea-4579-b06f-db462a70533e.txt"
+            },
+            "QueryExecutionContext": {
+                "Database": "production__irs__filings"
+            },
+            "Status": {
+                "State": "SUCCEEDED",
+                "SubmissionDateTime": 1511294515.619,
+                "CompletionDateTime": 1511294516.189
+            },
+            "Statistics": {
+                "EngineExecutionTimeInMillis": 508,
+                "DataScannedInBytes": 0
+            }
+        },
+        {
+            "QueryExecutionId": "28ff828f-ce39-4b16-8c1b-63aad01aa3f4",
+            "Query": "select * from index limit 100",
+            "ResultConfiguration": {
+                "OutputLocation": "s3://aws-athena-query-results-692977618922-us-west-2/Unsaved/2017/11/21/28ff828f-ce39-4b16-8c1b-63aad01aa3f4.csv"
+            },
+            "QueryExecutionContext": {
+                "Database": "production__irs__filings"
+            },
+            "Status": {
+                "State": "FAILED",
+                "StateChangeReason": "HIVE_CURSOR_ERROR: Timestamp format must be yyyy-mm-dd hh:mm:ss[.fffffffff]",
+                "SubmissionDateTime": 1511227793.319,
+                "CompletionDateTime": 1511227795.061
+            },
+            "Statistics": {
+                "EngineExecutionTimeInMillis": 1507,
+                "DataScannedInBytes": 0
+            }
+        },
+        {
+            "QueryExecutionId": "231915ac-7991-4ae4-82eb-7503a1dfc9da",
+            "Query": "describe table index",
+            "ResultConfiguration": {
+                "OutputLocation": "s3://aws-athena-query-results-692977618922-us-west-2/Unsaved/2017/11/21/231915ac-7991-4ae4-82eb-7503a1dfc9da.txt"
+            },
+            "QueryExecutionContext": {
+                "Database": "production__irs__filings"
+            },
+            "Status": {
+                "State": "FAILED",
+                "StateChangeReason": "FAILED: SemanticException [Error 10001]: Table not found table",
+                "SubmissionDateTime": 1511294489.885,
+                "CompletionDateTime": 1511294490.614
+            },
+            "Statistics": {
+                "EngineExecutionTimeInMillis": 448,
+                "DataScannedInBytes": 0
+            }
+        },
+        {
+            "QueryExecutionId": "adf48dd4-1bf5-4a99-906c-ebc250218fa8",
+            "Query": "select * from index limit 100",
+            "ResultConfiguration": {
+                "OutputLocation": "s3://aws-athena-query-results-692977618922-us-west-2/Unsaved/2017/11/21/adf48dd4-1bf5-4a99-906c-ebc250218fa8.csv"
+            },
+            "QueryExecutionContext": {
+                "Database": "production__irs__filings"
+            },
+            "Status": {
+                "State": "FAILED",
+                "StateChangeReason": "HIVE_CURSOR_ERROR: Timestamp format must be yyyy-mm-dd hh:mm:ss[.fffffffff]",
+                "SubmissionDateTime": 1511227969.777,
+                "CompletionDateTime": 1511227970.313
+            },
+            "Statistics": {
+                "EngineExecutionTimeInMillis": 430,
+                "DataScannedInBytes": 0
+            }
+        },
+        {
+            "QueryExecutionId": "4c196d87-9239-4b86-aac5-8ce074e31028",
+            "Query": "select * from production__irs__filings",
+            "ResultConfiguration": {
+                "OutputLocation": "s3://aws-athena-query-results-692977618922-us-west-2/Unsaved/2017/11/21/4c196d87-9239-4b86-aac5-8ce074e31028.csv"
+            },
+            "QueryExecutionContext": {
+                "Database": "default"
+            },
+            "Status": {
+                "State": "FAILED",
+                "StateChangeReason": "com.facebook.presto.hive.DataCatalogException: Table production__irs__filings not found. Please check your query.",
+                "SubmissionDateTime": 1511223722.977,
+                "CompletionDateTime": 1511223723.673
+            },
+            "Statistics": {
+                "EngineExecutionTimeInMillis": 451,
+                "DataScannedInBytes": 0
+            }
+        },
+        {
+            "QueryExecutionId": "16422c03-4970-48ac-b49b-3937c4aaa32b",
+            "Query": "select * from index limit 100",
+            "ResultConfiguration": {
+                "OutputLocation": "s3://aws-athena-query-results-692977618922-us-west-2/Unsaved/2017/11/21/16422c03-4970-48ac-b49b-3937c4aaa32b.csv"
+            },
+            "QueryExecutionContext": {
+                "Database": "production__irs__filings"
+            },
+            "Status": {
+                "State": "SUCCEEDED",
+                "SubmissionDateTime": 1511227958.571,
+                "CompletionDateTime": 1511227959.627
+            },
+            "Statistics": {
+                "EngineExecutionTimeInMillis": 962,
+                "DataScannedInBytes": 11479
+            }
+        },
+        {
+            "QueryExecutionId": "43ff0a78-4f85-4cf1-8230-eafef93cdafe",
+            "Query": "show databases",
+            "ResultConfiguration": {
+                "OutputLocation": "s3://aws-athena-query-results-692977618922-us-west-2/Unsaved/2017/11/21/43ff0a78-4f85-4cf1-8230-eafef93cdafe.txt"
+            },
+            "QueryExecutionContext": {
+                "Database": "default"
+            },
+            "Status": {
+                "State": "SUCCEEDED",
+                "SubmissionDateTime": 1511223737.85,
+                "CompletionDateTime": 1511223738.345
+            },
+            "Statistics": {
+                "EngineExecutionTimeInMillis": 385,
+                "DataScannedInBytes": 0
+            }
+        },
+        {
+            "QueryExecutionId": "cfdbdc5f-9efa-4809-9bb5-8b1362553e2e",
+            "Query": "select * from index limit 100",
+            "ResultConfiguration": {
+                "OutputLocation": "s3://aws-athena-query-results-692977618922-us-west-2/Unsaved/2017/11/21/cfdbdc5f-9efa-4809-9bb5-8b1362553e2e.csv"
+            },
+            "QueryExecutionContext": {
+                "Database": "production__irs__filings"
+            },
+            "Status": {
+                "State": "SUCCEEDED",
+                "SubmissionDateTime": 1511227960.323,
+                "CompletionDateTime": 1511227961.058
+            },
+            "Statistics": {
+                "EngineExecutionTimeInMillis": 654,
+                "DataScannedInBytes": 11479
+            }
+        },
+        {
+            "QueryExecutionId": "e34df0df-67ef-487b-8e82-2fa7562aeb17",
+            "Query": "select return_id, filing_type from index",
+            "ResultConfiguration": {
+                "OutputLocation": "s3://aws-athena-query-results-692977618922-us-west-2/Unsaved/2017/11/21/e34df0df-67ef-487b-8e82-2fa7562aeb17.csv"
+            },
+            "QueryExecutionContext": {
+                "Database": "production__irs__filings"
+            },
+            "Status": {
+                "State": "FAILED",
+                "StateChangeReason": "HIVE_CURSOR_ERROR: Timestamp format must be yyyy-mm-dd hh:mm:ss[.fffffffff]",
+                "SubmissionDateTime": 1511227991.403,
+                "CompletionDateTime": 1511227992.081
+            },
+            "Statistics": {
+                "EngineExecutionTimeInMillis": 410,
+                "DataScannedInBytes": 11479
+            }
+        },
+        {
+            "QueryExecutionId": "a66e378e-52df-4e18-ba3a-32414eeb84ee",
+            "Query": "create database production__irs__filings",
+            "ResultConfiguration": {
+                "OutputLocation": "s3://aws-athena-query-results-692977618922-us-west-2/Unsaved/2017/11/21/a66e378e-52df-4e18-ba3a-32414eeb84ee.txt"
+            },
+            "QueryExecutionContext": {
+                "Database": "default"
+            },
+            "Status": {
+                "State": "SUCCEEDED",
+                "SubmissionDateTime": 1511223648.988,
+                "CompletionDateTime": 1511223649.844
+            },
+            "Statistics": {
+                "EngineExecutionTimeInMillis": 553,
+                "DataScannedInBytes": 0
+            }
+        }
+    ],
+    "UnprocessedQueryExecutionIds": []
+}

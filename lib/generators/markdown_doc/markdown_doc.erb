@@ -1,0 +1,15 @@
+# <%= structure[:full_relation_name].gsub('_','\_') %>
+
+## Properties
+
+|property|value|
+|---|---|
+|**dsd**|<%= structure[:dsd].gsub('_','\_') %>|
+<% if structure[:etl_job_name] %>|**etl\_job\_name**|<%= structure[:etl_job_name].gsub('_','\_') %>|<% end %>
+<% if structure[:etl_job_schedule] %>|**etl\_job\_schedule**|<%= structure[:etl_job_schedule].gsub('_','\_') %>|<% end %>
+
+## Attributes
+
+|attribute|data_type|required|expression|
+|---|---|---|---|<% structure[:attributes].each do |a| %>
+|<%= a[:name] %>|<%= a[:data_type] %>|<%= a[:required].to_s %>|<%= a[:expression].to_s.gsub('|', '\|') %><% end %>|

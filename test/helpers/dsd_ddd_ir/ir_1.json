@@ -1,0 +1,44 @@
+{
+  "table_name": "target_table",
+  "database_name": "test_database",
+  "temp_location": "s3://fakedata.beyondsoft.us/test-ddl-output/",
+  "attributes": [
+    {
+      "name": "title",
+      "data_type": "varchar(100)",
+      "expression": "title"
+    },
+    {
+      "name": "author",
+      "data_type": "varchar(100)",
+      "expression": "author"
+    },
+    {
+      "name": "publisher",
+      "data_type": "varchar(100)",
+      "expression": "publisher"
+    },
+    {
+      "name": "genre",
+      "data_type": "varchar(100)",
+      "expression": "genre"
+    }
+  ],
+  "storage": {
+    "format": "parquet",
+    "location": "fakedata-target.beyondsoft.us"
+  },
+  "source": {
+    "format": "json",
+    "location": "fakedata-source.beyondsoft.us"
+  },
+  "state": {
+    "location": "fakedata-state.beyondsoft.us"
+  },
+  "temp": {
+    "location": "fakedata.beyondsoft.us/temp/"
+  },
+  "tblproperties": {
+    "classification": "parquet"
+  }
+}

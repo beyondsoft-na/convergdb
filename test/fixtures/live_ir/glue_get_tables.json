@@ -1,0 +1,150 @@
+{
+    "TableList": [
+        {
+            "Name": "books",
+            "Owner": "hadoop",
+            "CreateTime": 1518047664.0,
+            "UpdateTime": 1518047664.0,
+            "Retention": 0,
+            "StorageDescriptor": {
+                "Columns": [
+                    {
+                        "Name": "item_number",
+                        "Type": "int",
+                        "Comment": "item_number"
+                    },
+                    {
+                        "Name": "title",
+                        "Type": "string",
+                        "Comment": "title"
+                    },
+                    {
+                        "Name": "author",
+                        "Type": "string",
+                        "Comment": "author"
+                    },
+                    {
+                        "Name": "price",
+                        "Type": "decimal(10,2)",
+                        "Comment": "price"
+                    },
+                    {
+                        "Name": "retail_markup",
+                        "Type": "decimal(10,2)",
+                        "Comment": "price * 0.25"
+                    }
+                ],
+                "Location": "s3://convergdb-data-f13f80a0c63d373f/15302509696417528321/production.ecommerce.inventory.books/",
+                "InputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
+                "OutputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
+                "Compressed": false,
+                "NumberOfBuckets": -1,
+                "SerdeInfo": {
+                    "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe",
+                    "Parameters": {
+                        "serialization.format": "1"
+                    }
+                },
+                "BucketColumns": [],
+                "SortColumns": [],
+                "Parameters": {},
+                "SkewedInfo": {
+                    "SkewedColumnNames": [],
+                    "SkewedColumnValues": [],
+                    "SkewedColumnValueLocationMaps": {}
+                },
+                "StoredAsSubDirectories": false
+            },
+            "PartitionKeys": [
+                {
+                    "Name": "part_id",
+                    "Type": "string",
+                    "Comment": "substring(md5(title),1,1)"
+                }
+            ],
+            "TableType": "EXTERNAL_TABLE",
+            "Parameters": {
+                "EXTERNAL": "TRUE",
+                "classification": "parquet",
+                "convergdb_database_cf_id": "arn:aws:cloudformation:us-west-2:692977618922:stack/convergdb-tf-db-15302509696417528321-8115201757802509580/2b9d2f50-0c62-11e8-a93f-50d5ca789e1e",
+                "convergdb_deployment_id": "15302509696417528321",
+                "convergdb_dsd": "ecommerce.inventory.books",
+                "convergdb_etl_job_name": "nightly_batch",
+                "convergdb_full_relation_name": "production.ecommerce.inventory.books",
+                "convergdb_state_bucket": "convergdb-admin-f13f80a0c63d373f",
+                "convergdb_storage_bucket": "convergdb-data-f13f80a0c63d373f/15302509696417528321/production.ecommerce.inventory.books",
+                "convergdb_storage_format": "parquet"
+            },
+            "CreatedBy": "arn:aws:iam::692977618922:user/jeremy"
+        },
+        {
+            "Name": "not_a_convergdb_table",
+            "Owner": "hadoop",
+            "CreateTime": 1518047664.0,
+            "UpdateTime": 1518047664.0,
+            "Retention": 0,
+            "StorageDescriptor": {
+                "Columns": [
+                    {
+                        "Name": "item_number",
+                        "Type": "int",
+                        "Comment": "item_number"
+                    },
+                    {
+                        "Name": "title",
+                        "Type": "string",
+                        "Comment": "title"
+                    },
+                    {
+                        "Name": "author",
+                        "Type": "string",
+                        "Comment": "author"
+                    },
+                    {
+                        "Name": "price",
+                        "Type": "decimal(10,2)",
+                        "Comment": "price"
+                    },
+                    {
+                        "Name": "retail_markup",
+                        "Type": "decimal(10,2)",
+                        "Comment": "price * 0.25"
+                    }
+                ],
+                "Location": "s3://convergdb-data-f13f80a0c63d373f/15302509696417528321/production.ecommerce.inventory.books/",
+                "InputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
+                "OutputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
+                "Compressed": false,
+                "NumberOfBuckets": -1,
+                "SerdeInfo": {
+                    "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe",
+                    "Parameters": {
+                        "serialization.format": "1"
+                    }
+                },
+                "BucketColumns": [],
+                "SortColumns": [],
+                "Parameters": {},
+                "SkewedInfo": {
+                    "SkewedColumnNames": [],
+                    "SkewedColumnValues": [],
+                    "SkewedColumnValueLocationMaps": {}
+                },
+                "StoredAsSubDirectories": false
+            },
+            "PartitionKeys": [
+                {
+                    "Name": "part_id",
+                    "Type": "string",
+                    "Comment": "substring(md5(title),1,1)"
+                }
+            ],
+            "TableType": "EXTERNAL_TABLE",
+            "Parameters": {
+                "EXTERNAL": "TRUE",
+                "classification": "parquet"
+            },
+            "CreatedBy": "arn:aws:iam::692977618922:user/jeremy"
+        }
+    ]
+}

@@ -1,0 +1,111 @@
+[
+  {
+    "domain_name": "ecommerce",
+    "schemas": [
+      {
+        "schema_name": "inventory",
+        "relations": [
+          {
+            "dsd_name": "ecommerce.inventory.books_source",
+            "source_dsd_name": null,
+            "relation_name": "books_source",
+            "relation_type": 0,
+            "partitions": [
+
+            ],
+            "attributes": [
+              {
+                "name": "item_number",
+                "required": false,
+                "expression": null,
+                "data_type": "integer",
+                "field_type": null
+              },
+              {
+                "name": "title",
+                "required": false,
+                "expression": null,
+                "data_type": "varchar(100)",
+                "field_type": null
+              },
+              {
+                "name": "author",
+                "required": false,
+                "expression": null,
+                "data_type": "varchar(100)",
+                "field_type": null
+              },
+              {
+                "name": "price",
+                "required": false,
+                "expression": null,
+                "data_type": "numeric(10,2)",
+                "field_type": null
+              },
+              {
+                "name": "stock",
+                "required": false,
+                "expression": null,
+                "data_type": "integer",
+                "field_type": null
+              }
+            ]
+          },
+          {
+            "dsd_name": "ecommerce.inventory.books",
+            "source_dsd_name": "ecommerce.inventory.books_source",
+            "relation_name": "books",
+            "relation_type": 1,
+            "partitions": [
+
+            ],
+            "attributes": [
+              {
+                "name": "item_number",
+                "required": false,
+                "expression": "item_number",
+                "data_type": "integer",
+                "field_type": null
+              },
+              {
+                "name": "title",
+                "required": false,
+                "expression": "title",
+                "data_type": "varchar(100)",
+                "field_type": null
+              },
+              {
+                "name": "author",
+                "required": false,
+                "expression": "author",
+                "data_type": "varchar(100)",
+                "field_type": null
+              },
+              {
+                "name": "price",
+                "required": false,
+                "expression": "price",
+                "data_type": "numeric(10,2)",
+                "field_type": null
+              },
+              {
+                "name": "unique_id",
+                "required": false,
+                "expression": "concat('book-',md5(title))",
+                "data_type": "varchar(100)",
+                "field_type": null
+              },
+              {
+                "name": "retail_markup",
+                "required": false,
+                "expression": "price * 0.25",
+                "data_type": "numeric(10,2)",
+                "field_type": null
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

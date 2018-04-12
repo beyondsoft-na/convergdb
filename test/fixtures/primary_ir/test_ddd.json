@@ -1,0 +1,56 @@
+[
+  {
+    "region": "us-west-2",
+    "environment": "production",
+    "domain_name": null,
+    "schema_name": null,
+    "relations": [
+      {
+        "generators": [
+          "s3_source"
+        ],
+        "dsd": "business.inventory.books",
+        "full_relation_name": "production.business.inventory.books",
+        "region": "us-west-2",
+        "environment": "production",
+        "domain_name": null,
+        "schema_name": null,
+        "relation_name": null,
+        "storage_bucket": "fakedata-source.beyondsoft.us",
+        "storage_format": "json"
+      }
+    ]
+  },
+  {
+    "environment": "production",
+    "domain_name": null,
+    "schema_name": null,
+    "region": "us-west-2",
+    "service_role": "glueService",
+    "script_bucket": "fakedata-scripts.beyondsoft.us",
+    "temp_s3_location": "s3://fakedata.beyondsoft.us/temp/",
+    "storage_format": null,
+    "relations": [
+      {
+        "generators": [
+          "athena",
+          "glue"
+        ],
+        "full_relation_name": "production.business.inventory.books_target",
+        "dsd": "business.inventory.books_target",
+        "environment": "production",
+        "domain_name": null,
+        "schema_name": null,
+        "relation_name": null,
+        "region": "us-west-2",
+        "service_role": "glueService",
+        "script_bucket": "fakedata-scripts.beyondsoft.us",
+        "temp_s3_location": "s3://fakedata.beyondsoft.us/temp/",
+        "storage_bucket": "fakedata-target.beyondsoft.us",
+        "state_bucket": "fakedata-state.beyondsoft.us",
+        "storage_format": "parquet",
+        "source_relation_prefix": null
+      }
+    ]
+  }
+]

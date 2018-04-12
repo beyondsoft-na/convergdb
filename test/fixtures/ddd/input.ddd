@@ -1,0 +1,41 @@
+athena "ns" {
+  region = "us-west-2"
+  domain_name = "dbname"
+  schema_name = "dbname2"
+  service_role = "glueService"
+  script_bucket = "bucket-name"
+  temp_s3_location = "s3://bucket/location"
+  storage_format = "parquet" # optional
+  etl_job_name = "etl_job"
+  etl_job_schedule = "cron(0 0 * \" # * ? *)\""
+  relations {
+    relation {
+      dsd = "dbname.schema.dsdrelation"
+      domain_name = "db2"
+      schema_name = "schema2"
+      relation_name = "relation2"
+      service_role = "glue2"
+      script_bucket = "script-bucket"
+      temp_s3_location = "s3://bucket/name"
+      storage_bucket = "storage-bucket"
+      state_bucket = "state-bucket"
+      storage_format = "json"
+      source_relation_prefix = "ns2.db3"
+    }
+  }
+
+  source_relation_prefix = "ns.db.schema"
+}
+
+s3_source "ns" {
+  region = "us-west-2" # required
+  domain_name = "dbname" # optional
+  schema_name = "dbname3" # optional
+  relations {
+    relation {
+      dsd = "dbname.schema.baserelation" # required
+      storage_bucket = "bucket-name" # required
+      storage_format = "json" # required
+    }
+  }
+}

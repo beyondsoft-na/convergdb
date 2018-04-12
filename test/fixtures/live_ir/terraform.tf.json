@@ -1,0 +1,12 @@
+{
+  "terraform" : {
+    "backend" : {
+      "s3" : {
+        "bucket" : "convergdb-admin-f13f80a0c63d373f",
+        "key" : "terraform/convergdb.tfstate",
+        "dynamodb_table" : "convergdb-lock-f13f80a0c63d373f",
+        "region" : "us-west-2"
+      }
+    }
+  }
+}

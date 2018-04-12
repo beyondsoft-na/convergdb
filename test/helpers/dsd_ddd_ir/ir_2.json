@@ -1,0 +1,46 @@
+{
+  "full_relation_name": "production.test_database.test_schema.books_target",
+  "namespace": "production",
+  "database_name": "test_database",
+  "schema_name": "test_schema",
+  "relation_name": "books_target",
+  "implementation": [
+    "athena",
+    "glue"
+  ],
+  "region": "us-west-2",
+  "service_role": "glueService",
+  "script_bucket": "fakedata.beyondsoft.us",
+  "temp_s3_location": "s3://fakedata.beyondsoft.us/temp/",
+  "storage_s3_bucket": "fakedata-target.beyondsoft.us",
+  "state_s3_bucket": "fakedata-state.beyondsoft.us",
+  "storage_format": "parquet",
+  "source_s3_bucket": "fakedata-source.beyondsoft.us",
+  "source_type": "json",
+  "attributes": [
+    {
+      "name": "title",
+      "data_type": "varchar(100)",
+      "expression": "title"
+    },
+    {
+      "name": "author",
+      "data_type": "varchar(100)",
+      "expression": "author"
+    },
+    {
+      "name": "publisher",
+      "data_type": "varchar(100)",
+      "expression": "publisher"
+    },
+    {
+      "name": "genre",
+      "data_type": "varchar(100)",
+      "expression": "genre"
+    }
+  ],
+  "resolved": true,
+  "depends_on": [
+    "production.test_database.test_schema.books_source"
+  ]
+}

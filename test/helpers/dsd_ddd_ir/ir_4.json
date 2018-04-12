@@ -1,0 +1,109 @@
+{
+  "production.business.inventory.books": {
+    "generators": [
+      "s3_source"
+    ],
+    "dsd": "business.inventory.books",
+    "full_relation_name": "production.business.inventory.books",
+    "region": "us-west-2",
+    "environment": "production",
+    "domain_name": null,
+    "schema_name": null,
+    "relation_name": null,
+    "storage_bucket": "fakedata-source.beyondsoft.us",
+    "storage_format": "json",
+    "attributes": [
+      {
+        "name": "title",
+        "required": true,
+        "expression": null,
+        "data_type": "varchar(100)",
+        "field_type": 1
+      },
+      {
+        "name": "author",
+        "required": true,
+        "expression": null,
+        "data_type": "varchar(100)",
+        "field_type": 1
+      },
+      {
+        "name": "publisher",
+        "required": true,
+        "expression": null,
+        "data_type": "varchar(100)",
+        "field_type": 1
+      },
+      {
+        "name": "genre",
+        "required": true,
+        "expression": null,
+        "data_type": "varchar(100)",
+        "field_type": 1
+      }
+    ],
+    "partitions": [
+
+    ],
+    "relation_type": 0,
+    "source_dsd_name": null
+  },
+  "production.business.inventory.books_target": {
+    "generators": [
+      "athena",
+      "glue"
+    ],
+    "full_relation_name": "production.business.inventory.books_target",
+    "dsd": "business.inventory.books_target",
+    "environment": "production",
+    "domain_name": null,
+    "schema_name": null,
+    "relation_name": null,
+    "region": "us-west-2",
+    "service_role": "glueService",
+    "script_bucket": "fakedata-scripts.beyondsoft.us",
+    "temp_s3_location": "s3://fakedata.beyondsoft.us/temp/",
+    "storage_bucket": "fakedata-target.beyondsoft.us",
+    "state_bucket": "fakedata-state.beyondsoft.us",
+    "storage_format": "parquet",
+    "source_relation_prefix": null,
+    "attributes": [
+      {
+        "name": "title",
+        "required": true,
+        "expression": "books.title",
+        "data_type": "varchar(100)",
+        "field_type": 1
+      },
+      {
+        "name": "author",
+        "required": true,
+        "expression": "books.author",
+        "data_type": "varchar(100)",
+        "field_type": 1
+      },
+      {
+        "name": "publisher",
+        "required": true,
+        "expression": "books.publisher",
+        "data_type": "varchar(100)",
+        "field_type": 1
+      },
+      {
+        "name": "genre",
+        "required": true,
+        "expression": "books.genre",
+        "data_type": "varchar(100)",
+        "field_type": 1
+      }
+    ],
+    "partitions": [
+
+    ],
+    "relation_type": 1,
+    "source_dsd_name": "business.inventory.books",
+    "full_source_relation_name": "production.business.inventory.books",
+    "source_format": "json",
+    "source_bucket": "fakedata-source.beyondsoft.us"
+  }
+}

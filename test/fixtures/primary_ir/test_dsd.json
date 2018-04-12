@@ -1,0 +1,90 @@
+[
+  {
+    "domain_name": "business",
+    "schemas": [
+      {
+        "schema_name": "inventory",
+        "relations": [
+          {
+            "dsd_name": "business.inventory.books",
+            "source_dsd_name": null,
+            "relation_name": "books",
+            "relation_type": 0,
+            "partitions": [
+
+            ],
+            "attributes": [
+              {
+                "name": "title",
+                "required": true,
+                "expression": null,
+                "data_type": "varchar(100)",
+                "field_type": 1
+              },
+              {
+                "name": "author",
+                "required": true,
+                "expression": null,
+                "data_type": "varchar(100)",
+                "field_type": 1
+              },
+              {
+                "name": "publisher",
+                "required": true,
+                "expression": null,
+                "data_type": "varchar(100)",
+                "field_type": 1
+              },
+              {
+                "name": "genre",
+                "required": true,
+                "expression": null,
+                "data_type": "varchar(100)",
+                "field_type": 1
+              }
+            ]
+          },
+          {
+            "dsd_name": "business.inventory.books_target",
+            "source_dsd_name": "business.inventory.books",
+            "relation_name": "books_target",
+            "relation_type": 1,
+            "partitions": [
+
+            ],
+            "attributes": [
+              {
+                "name": "title",
+                "required": true,
+                "expression": "books.title",
+                "data_type": "varchar(100)",
+                "field_type": 1
+              },
+              {
+                "name": "author",
+                "required": true,
+                "expression": "books.author",
+                "data_type": "varchar(100)",
+                "field_type": 1
+              },
+              {
+                "name": "publisher",
+                "required": true,
+                "expression": "books.publisher",
+                "data_type": "varchar(100)",
+                "field_type": 1
+              },
+              {
+                "name": "genre",
+                "required": true,
+                "expression": "books.genre",
+                "data_type": "varchar(100)",
+                "field_type": 1
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

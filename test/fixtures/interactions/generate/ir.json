@@ -1,0 +1,194 @@
+{
+  "production.ecommerce.inventory.books_source": {
+    "generators": [
+      "s3_source",
+      "markdown_doc",
+      "html_doc"
+    ],
+    "dsd": "ecommerce.inventory.books_source",
+    "full_relation_name": "production.ecommerce.inventory.books_source",
+    "environment": "production",
+    "domain_name": null,
+    "schema_name": null,
+    "relation_name": null,
+    "storage_bucket": "demo-source-us-east-2.beyondsoft.us",
+    "storage_format": "json",
+    "inventory_table": "",
+    "attributes": [
+      {
+        "name": "item_number",
+        "required": false,
+        "expression": null,
+        "data_type": "integer",
+        "field_type": null
+      },
+      {
+        "name": "title",
+        "required": false,
+        "expression": null,
+        "data_type": "varchar(100)",
+        "field_type": null
+      },
+      {
+        "name": "author",
+        "required": false,
+        "expression": null,
+        "data_type": "varchar(100)",
+        "field_type": null
+      },
+      {
+        "name": "price",
+        "required": false,
+        "expression": null,
+        "data_type": "numeric(10,2)",
+        "field_type": null
+      },
+      {
+        "name": "stock",
+        "required": false,
+        "expression": null,
+        "data_type": "integer",
+        "field_type": null
+      }
+    ],
+    "partitions": [
+
+    ],
+    "relation_type": 0,
+    "source_dsd_name": null
+  },
+  "production.ecommerce.inventory.books": {
+    "generators": [
+      "athena",
+      "glue",
+      "markdown_doc",
+      "html_doc",
+      "control_table"
+    ],
+    "full_relation_name": "production.ecommerce.inventory.books",
+    "dsd": "ecommerce.inventory.books",
+    "environment": "production",
+    "domain_name": null,
+    "schema_name": null,
+    "relation_name": null,
+    "service_role": "glueService",
+    "script_bucket": "demo-utility-us-east-2.beyondsoft.us",
+    "temp_s3_location": null,
+    "storage_bucket": "demo-target-us-east-2.beyondsoft.us",
+    "state_bucket": "demo-state-us-east-2.beyondsoft.us",
+    "storage_format": "parquet",
+    "source_relation_prefix": null,
+    "use_inventory": "false",
+    "etl_job_name": "nightly_batch",
+    "etl_job_schedule": "cron(0 0 * * ? *)",
+    "etl_job_dpu" : 20,
+    "attributes": [
+      {
+        "name": "item_number",
+        "required": false,
+        "expression": "item_number",
+        "data_type": "integer",
+        "field_type": null
+      },
+      {
+        "name": "title",
+        "required": false,
+        "expression": "title",
+        "data_type": "varchar(100)",
+        "field_type": null
+      },
+      {
+        "name": "author",
+        "required": false,
+        "expression": "author",
+        "data_type": "varchar(100)",
+        "field_type": null
+      },
+      {
+        "name": "price",
+        "required": false,
+        "expression": "price",
+        "data_type": "numeric(10,2)",
+        "field_type": null
+      },
+      {
+        "name": "unique_id",
+        "required": false,
+        "expression": "concat('book-',md5(title))",
+        "data_type": "varchar(100)",
+        "field_type": null
+      },
+      {
+        "name": "retail_markup",
+        "required": false,
+        "expression": "price * 0.25",
+        "data_type": "numeric(10,2)",
+        "field_type": null
+      }
+    ],
+    "partitions": [
+
+    ],
+    "relation_type": 1,
+    "source_dsd_name": "ecommerce.inventory.books_source",
+    "full_source_relation_name": "production.ecommerce.inventory.books_source",
+    "source_structure" : {
+      "generators": [
+        "s3_source",
+        "markdown_doc",
+        "html_doc"
+      ],
+      "dsd": "ecommerce.inventory.books_source",
+      "full_relation_name": "production.ecommerce.inventory.books_source",
+      "environment": "production",
+      "domain_name": null,
+      "schema_name": null,
+      "relation_name": null,
+      "storage_bucket": "demo-source-us-east-2.beyondsoft.us",
+      "storage_format": "json",
+      "inventory_table": "",
+      "attributes": [
+        {
+          "name": "item_number",
+          "required": false,
+          "expression": null,
+          "data_type": "integer",
+          "field_type": null
+        },
+        {
+          "name": "title",
+          "required": false,
+          "expression": null,
+          "data_type": "varchar(100)",
+          "field_type": null
+        },
+        {
+          "name": "author",
+          "required": false,
+          "expression": null,
+          "data_type": "varchar(100)",
+          "field_type": null
+        },
+        {
+          "name": "price",
+          "required": false,
+          "expression": null,
+          "data_type": "numeric(10,2)",
+          "field_type": null
+        },
+        {
+          "name": "stock",
+          "required": false,
+          "expression": null,
+          "data_type": "integer",
+          "field_type": null
+        }
+      ],
+      "partitions": [
+  
+      ],
+      "relation_type": 0,
+      "source_dsd_name": null
+    }
+  }
+}

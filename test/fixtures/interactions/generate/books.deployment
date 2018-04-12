@@ -1,0 +1,25 @@
+s3_source "production" {
+  relations {
+    relation {
+      dsd = "ecommerce.inventory.books_source"
+      storage_format = "json"
+      storage_bucket = "demo-source-us-east-2.beyondsoft.us"
+    }
+  }
+}
+
+athena "production" {
+  script_bucket = "demo-utility-us-east-2.beyondsoft.us"
+  etl_job_name = "nightly_batch"
+  etl_job_schedule = "cron(0 0 * * ? *)"
+  etl_job_dpu = "20"
+  service_role = "glueService"
+  relations {
+    relation {
+      storage_format = "parquet"
+      dsd = "ecommerce.inventory.books"
+      storage_bucket = "demo-target-us-east-2.beyondsoft.us"
+      state_bucket = "demo-state-us-east-2.beyondsoft.us" 
+    }
+  }
+}

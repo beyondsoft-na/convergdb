@@ -1,0 +1,49 @@
+domain "company2" {
+  schema "schema2" {
+    relation "users1" {
+        partitions = []
+        relation_type = base
+        attributes {
+          attribute "user_id" {
+            data_type = bigint
+            required = true
+            field_type = measure
+            properties {
+             label = "UserID"
+             default_aggregate = distinct
+            }
+          },
+          attribute "user_name" {
+            required = false
+            data_type = varchar(100)
+            field_type = dimension
+            properties {
+              label = "UserName"
+            }
+          }
+        }
+    }
+    relation "users_fact1" {
+      relation_type = derived { source= "users.user" }
+      partitions = ["user_id", "user_name"]
+      attributes {
+        attribute "user_id" { expression = "users.user_id" }
+        # attribute with expression
+        attribute "user_name" {
+          expression = "md5('string with }}}} == spaces')" #this is a comment
+        }
+        attribute "id_md5" {
+          expression = "md5(id || upper(users.user_name))"
+          data_type = varchar(120)
+          field_type = dimension
+
+        }
+        attribute "create_ts" {
+          data_type = timestamp
+          expression = "case when t.a = 0 then t.a else t.b end"
+          field_type = dimension
+        }
+      }
+    }
+  }
+}

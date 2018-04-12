@@ -1,0 +1,77 @@
+{
+  "production.ecommerce.inventory.books": {
+    "full_relation_name": "production.ecommerce.inventory.books",
+    "dsd": "ecommerce.inventory.books",
+    "storage_bucket": "demo-target-us-east-2.beyondsoft.us",
+    "state_bucket": "demo-state-us-east-2.beyondsoft.us",
+    "storage_format": "parquet",
+    "etl_job_name": "nightly_batch",
+    "attributes": [
+      {
+        "name": "item_number",
+        "data_type": "int",
+        "expression": "item_number"
+      },
+      {
+        "name": "title",
+        "data_type": "string",
+        "expression": "title"
+      },
+      {
+        "name": "author",
+        "data_type": "string",
+        "expression": "author"
+      },
+      {
+        "name": "price",
+        "data_type": "double",
+        "expression": "price"
+      },
+      {
+        "name": "unique_id",
+        "data_type": "string",
+        "expression": "concat('book-',md5(title))"
+      },
+      {
+        "name": "retail_markup",
+        "data_type": "double",
+        "expression": "price * 0.25"
+      }
+    ]
+  },
+  "production.ecommerce.inventory.books_source": {
+    "full_relation_name": "production.ecommerce.inventory.books_source",
+    "dsd": "ecommerce.inventory.books_source",
+    "storage_bucket": "demo-source-us-east-2.beyondsoft.us",
+    "state_bucket": "",
+    "storage_format": "json",
+    "etl_job_name": "",
+    "attributes": [
+      {
+        "name": "item_number",
+        "data_type": "int",
+        "expression": ""
+      },
+      {
+        "name": "title",
+        "data_type": "string",
+        "expression": ""
+      },
+      {
+        "name": "author",
+        "data_type": "string",
+        "expression": ""
+      },
+      {
+        "name": "price",
+        "data_type": "double",
+        "expression": ""
+      },
+      {
+        "name": "stock",
+        "data_type": "int",
+        "expression": ""
+      }
+    ]
+  }
+}

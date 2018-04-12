@@ -1,0 +1,32 @@
+domain "ecommerce" {
+  schema "inventory" {
+    relation "books_source" {
+      relation_type = base
+      attributes {
+        attribute "item_number" { data_type = integer }
+        attribute "title"       { data_type = varchar(100) }
+        attribute "author"      { data_type = varchar(100) }
+        attribute "price"       { data_type = numeric(10,2) }
+        attribute "stock"       { data_type = integer }
+      }
+    }
+
+    relation "books" {
+      relation_type = derived { source = "books_source" }
+      attributes {
+        attribute "item_number" { data_type = integer }
+        attribute "title"       { data_type = varchar(100) }
+        attribute "author"      { data_type = varchar(100) }
+        attribute "price"       { data_type = numeric(10,2) }
+        attribute "unique_id" {
+          data_type = varchar(100)
+          expression = "concat('book-',md5(title))"
+        }
+        attribute "retail_markup" {
+          data_type = numeric(10,2)
+          expression = "price * 0.25"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,71 @@
+<html>
+<head>
+<title>ConvergDB-HTML-DOC</title>
+<style>
+table {
+    font-family: verdana, sans-serif;
+    border-collapse: collapse;
+}
+h1 {
+    font-family: verdana, sans-serif;
+}
+h2 {
+    font-family: verdana, sans-serif;
+}
+td, th {
+    border: 1px solid black;
+    text-align: left;
+    padding: 8px;
+}
+tr:nth-child(even) {
+    background-color: #dddddd;
+}
+</style>
+</head>
+<body>
+<h1> <%=structure[:full_relation_name].gsub('_','_') %> </h1>
+<h2>Properties</h2>
+<hr>
+<table>
+  <tr>
+    <th>property</th>
+    <th>value</th>
+  </tr>
+  <tr>
+    <td>dsd</td>
+    <td><%= structure[:dsd].gsub('_','_') %></td>
+  </tr>
+  <% if structure[:etl_job_name] %>
+    <tr>
+      <td>etl_job_name</td>
+      <td><%= structure[:etl_job_name].gsub('_','_') %></td>
+    </tr>
+  <% end %>
+  <% if structure[:etl_job_schedule] %>
+    <tr>
+      <td>etl_job_schedule</td>
+      <td><%= structure[:etl_job_schedule].gsub('_','_') %></td>
+    </tr>
+  <% end %>
+</table>
+
+<h2>Attributes</h2>
+<hr>
+<table>
+  <tr>
+    <th>attribute</th>
+    <th>data_type</th>
+    <th>required</th>
+    <th>expression</th>
+  </tr>
+  <% structure[:attributes].each do |a| %>
+  <tr>
+    <td><%= a[:name] %></td>
+    <td><%= a[:data_type] %></td>
+    <td><%= a[:required].to_s %></td>
+    <td><%= a[:expression].to_s %></td>
+  </tr>
+  <% end %>
+</table>
+</body>
+</html>
