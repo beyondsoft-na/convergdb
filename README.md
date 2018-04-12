@@ -52,7 +52,7 @@ The jar file is included in this repository. Simply right click on the jar file 
 To invoke ConvergDB jar file from the command line:
 
 ```
-$ java -jar convergdb-0.0.6.5.jar 
+$ java -jar convergdb.jar 
 Commands:
   <script> generate        # generate
   <script> help [COMMAND]  # Describe available commands or one specific command
