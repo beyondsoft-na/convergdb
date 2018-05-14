@@ -1,6 +1,6 @@
-convergdb_pyspark_library.source_from_target(
+convergdb.source_from_target(
+  sql_context(),
 """
 <%= JSON.pretty_generate(structure) %>
-""",
-<%= source_expression_lambda_func(structure[:source_structure]) %>
+"""
 )

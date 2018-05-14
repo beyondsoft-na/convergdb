@@ -1,5 +1,16 @@
 ## Changelog
 
+### 0.0.6.6 2018-05-13
+
+* added check for "canonical" dsd name in primary representation
+* integrated streaming inventory option for S3 sources
+* migrate updated pyspark library into repository
+* minor cosmetic updates to thor output
+* rebuilt integration tests
+* reintegrated schema pyspark schema definition to prevent inferSchema from running
+* expiration policy for /tmp objects in admin s3 bucket default to 3 days
+* expiration policy for old versions in data s3 bucket default to 7 days
+
 ### 0.0.6.5 2018-03-30
 
 * added license command

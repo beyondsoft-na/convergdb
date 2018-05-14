@@ -154,7 +154,17 @@ module ConvergDB
       # data format (json)
       attr_accessor :storage_format
 
+      # logical link to alreadye existing s3 inventory table
       attr_accessor :inventory_table
+
+      # whether or not to create a streaming inventory table
+      attr_accessor :streaming_inventory
+
+      # bucket location for storing inventory files
+      # defaults to admin_bucket
+      attr_accessor :streaming_inventory_output_bucket
+
+      attr_accessor :streaming_inventory_table
 
       # @param [Object] parent
       def initialize(parent)
@@ -164,7 +174,11 @@ module ConvergDB
       # @return [Hash]
       def structure
         {
-          generators: [:s3_source, :markdown_doc, :html_doc],
+          generators: [
+            :streaming_inventory,
+            :s3_source,
+            :markdown_doc,
+            :html_doc],
           dsd: @dsd,
           full_relation_name: @full_relation_name,
           environment: @environment,
@@ -173,7 +187,10 @@ module ConvergDB
           relation_name: @relation_name,
           storage_bucket: @storage_bucket,
           storage_format: @storage_format,
-          inventory_table: @inventory_table
+          inventory_table: @inventory_table,
+          streaming_inventory: @streaming_inventory,
+          streaming_inventory_output_bucket: @streaming_inventory_output_bucket,
+          streaming_inventory_table: @streaming_inventory_table
         }
       end
 
@@ -186,9 +203,30 @@ module ConvergDB
         # no resolve for @relation_name
         @full_relation_name = resolve_full_relation_name
         @inventory_table ||= ''
-        # buckets will default if not specified
-        unless @storage_bucket
-          @storage_bucket = "${data_bucket}/${deployment_id}/#{@full_relation_name}"
+        @streaming_inventory ||= 'false'
+        unless @streaming_inventory_output_bucket
+          if @streaming_inventory != 'false'
+            if @storage_bucket.class == String
+              bucket = '${var.admin_bucket}'
+              prefix = '${var.deployment_id}/streaming_inventory'
+              sb = @storage_bucket.split('/')[0]
+              siob = "#{bucket}/#{prefix}/#{sb}/"
+              @streaming_inventory_output_bucket = siob
+            else
+              raise "must define a storage_bucket for #{full_relation_name}"
+            end
+          end
+        end
+        unless @streaming_inventory_table
+          if @streaming_inventory == 'true'
+            if @storage_bucket
+              database = "convergdb_inventory_${deployment_id}"
+              a = @storage_bucket.split('/')[0].gsub(/(\.|\-)/, '__')
+              @streaming_inventory_table = "#{database}.#{a}"
+            else
+              raise "issue"
+            end
+          end
         end
       end
 
@@ -238,8 +276,9 @@ module ConvergDB
             regex: ConvergDB::ValidationRegex::ATHENA_TABLE,
             mandatory: false
           },
-          storage_bucket: { regex: /.*/, mandatory: false },
-          storage_format: { regex: /json/, mandatory: false }
+          storage_bucket: { regex: /.*/, mandatory: true },
+          storage_format: { regex: /json/, mandatory: false },
+          streaming_inventory: { regex: /^(true|false)$/i, mandatory: false }
         }
       end
 
@@ -421,7 +460,10 @@ module ConvergDB
       attr_accessor :state_bucket
       attr_accessor :storage_format
       attr_accessor :source_relation_prefix
+      # deprecated
       attr_accessor :use_inventory
+      # api(default), streaming, s3
+      attr_accessor :inventory_source
 
       attr_accessor :etl_job_name
       attr_accessor :etl_job_schedule
@@ -451,6 +493,7 @@ module ConvergDB
           state_bucket: @state_bucket,
           storage_format: @storage_format,
           source_relation_prefix: @source_relation_prefix,
+          inventory_source: @inventory_source,
           use_inventory: @use_inventory,
           etl_job_name: @etl_job_name,
           etl_job_schedule: @etl_job_schedule,
@@ -485,22 +528,30 @@ module ConvergDB
         @temp_s3_location = override_parent(:temp_s3_location)
         @storage_format = override_parent(:storage_format)
         @source_relation_prefix = override_parent(:source_relation_prefix)
+        
+        if @use_inventory
+          puts('athena stanza use_inventory attribute is deprecated... please use inventory_source = "s3"')
+        end
         @use_inventory ||= 'false'
+
+        unless @inventory_source
+          if @use_inventory == 'true'
+            @inventory_source = 's3'
+          end
+        end
+
+        # this is the attribute used downstream
+        @inventory_source ||= 'default'
+
         # buckets will default if not specified
         # used in module definition
-        unless @script_bucket
-          @script_bucket = "${admin_bucket}"
-        end
+        @script_bucket ||= "${admin_bucket}"
 
         # used inside a template_file
-        unless @state_bucket
-          @state_bucket = "${admin_bucket}"
-        end
+        @state_bucket ||= "${admin_bucket}"
 
         # used inside a template_file
-        unless @storage_bucket
-          @storage_bucket = "${data_bucket}/${deployment_id}/#{@full_relation_name}"
-        end
+        @storage_bucket ||= "${data_bucket}/${deployment_id}/#{@full_relation_name}"
 
         # only ever pulls from parent
         @etl_job_name = @parent.etl_job_name
@@ -568,6 +619,10 @@ module ConvergDB
           },
           use_inventory: {
             regex: ConvergDB::ValidationRegex::BOOLEAN_VALUE,
+            mandatory: false
+          },
+          inventory_source: {
+            regex: /(s3|streaming|api|default)/i,
             mandatory: false
           }
         }

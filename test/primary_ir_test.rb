@@ -236,7 +236,7 @@ module ConvergDB
         r = t.ddd_relations_to_hash(ddd_ir_structure)
 
         expected = {"production.ecommerce.inventory.books_source"=>
-          {:generators=>["s3_source", "markdown_doc", "html_doc"],
+          {:generators=>["streaming_inventory","s3_source", "markdown_doc", "html_doc"],
            :dsd=>"ecommerce.inventory.books_source",
            :full_relation_name=>"production.ecommerce.inventory.books_source",
            :environment=>"production",
@@ -244,7 +244,11 @@ module ConvergDB
            :schema_name=>nil,
            :relation_name=>nil,
            :storage_bucket=>"demo-source-us-east-2.beyondsoft.us",
-           :storage_format=>"json"},
+           :storage_format=>"json",
+           :inventory_table=>"",
+           :streaming_inventory=>"false",
+           :streaming_inventory_output_bucket=>nil,
+           :streaming_inventory_table=>nil},
          "production.ecommerce.inventory.books"=>
           {:generators=>[
               "athena", 
@@ -470,6 +474,31 @@ module ConvergDB
           ir['production.ecommerce.inventory.books_source'],
           ir['production.ecommerce.inventory.books'][:source_structure],
           pp(ir)
+        )
+      end
+      
+      def test_validate_relation_references
+        t = primary_ir
+        s = primary_ir_structure
+        
+        e = catch_error do
+          t.validate_relation_references(s)
+        end
+        
+        assert_equal(
+          NilClass,
+          e.class
+        )
+        
+        s['production.ecommerce.inventory.books'][:source_dsd_name] = 'will.not.work'
+        
+        e = catch_error do
+          t.validate_relation_references(s)
+        end
+        
+        assert_equal(
+          RuntimeError,
+          e.class
         )
       end
     end

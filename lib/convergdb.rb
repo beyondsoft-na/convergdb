@@ -20,6 +20,7 @@
   'generators/athena/athena.rb',
   'generators/glue/glue.rb',
   'generators/s3_source/s3_source.rb',
+  'generators/streaming_inventory/streaming_inventory.rb',
   'interactions/interactions.rb',
   'ir/base_ir.rb',
   'ir/ddd/ast.rb',

@@ -154,6 +154,7 @@ for the libraries utilized in ConvergDB.
 
         # separated to an attribute for unit testing purposes
         puts("generating artifacts...")
+        puts("")
         @master_generator = ConvergDB::Generators::MasterGenerator.new(ir)
       end
 

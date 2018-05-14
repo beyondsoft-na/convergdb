@@ -6,6 +6,7 @@
     "relations": [
       {
         "generators": [
+          "streaming_inventory",
           "s3_source",
           "markdown_doc",
           "html_doc"
@@ -17,7 +18,11 @@
         "schema_name": null,
         "relation_name": null,
         "storage_bucket": "demo-source-us-east-2.beyondsoft.us",
-        "storage_format": "json"
+        "storage_format": "json",
+        "inventory_table": "",
+        "streaming_inventory": "false",
+        "streaming_inventory_output_bucket": null,
+        "streaming_inventory_table": null
       }
     ]
   },

@@ -12,8 +12,9 @@ Gem::Specification.new do |s|
   s.executables << 'convergdb'
 
   Dir.glob('lib/**/*rb').each {|f| s.files << f; puts f}
-  Dir.glob('lib/**/*py').each {|f| s.files << f; puts f}
+  Dir.glob('lib/**/*zip').each {|f| s.files << f; puts f}
   Dir.glob('lib/**/*tf').each {|f| s.files << f; puts f}
+  Dir.glob('lib/**/*py').each {|f| s.files << f; puts f}
 
   s.homepage    = 'https://www.beyondsoft.com'
   s.license     = 'MIT'

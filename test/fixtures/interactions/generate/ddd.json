@@ -6,6 +6,7 @@
     "relations": [
       {
         "generators": [
+          "streaming_inventory",
           "s3_source",
           "markdown_doc",
           "html_doc"
@@ -18,7 +19,10 @@
         "relation_name": null,
         "storage_bucket": "demo-source-us-east-2.beyondsoft.us",
         "storage_format": "json",
-        "inventory_table": ""
+        "inventory_table": "",
+        "streaming_inventory": "false",
+        "streaming_inventory_output_bucket": null,
+        "streaming_inventory_table": null
       }
     ]
   },
@@ -56,6 +60,7 @@
         "state_bucket": "demo-state-us-east-2.beyondsoft.us",
         "storage_format": "parquet",
         "source_relation_prefix": null,
+        "inventory_source": "default",
         "use_inventory": "false",
         "etl_job_name": "nightly_batch",
         "etl_job_schedule": "cron(0 0 * * ? *)",

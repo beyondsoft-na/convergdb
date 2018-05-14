@@ -12,6 +12,16 @@ resource "aws_s3_bucket" "admin" {
   versioning {
     enabled = true
   }
+  
+  lifecycle_rule {
+    id      = "athena_tmp_results_expiration"
+    prefix  = "${var.deployment_id}/tmp/"
+    enabled = true
+
+    expiration {
+      days = 3
+    }
+  }
 }
 
 resource "aws_s3_bucket" "data" {
@@ -19,6 +29,15 @@ resource "aws_s3_bucket" "data" {
 
   versioning {
     enabled = true
+  }
+
+  lifecycle_rule {
+    id      = "convergdb_data_version_expiration"
+    enabled = true
+
+    noncurrent_version_expiration {
+      days = 7
+    }
   }
 }
 

@@ -116,12 +116,17 @@ module ConvergDB
 
         # sets the fully resolved full_source_relation_name.
         ir_add_full_source_relation_name!(@ir, @dsd_ir)
-
+        
         primary_ir_circular_dependency_check(@ir)
-
+        
         # once set... full_source_relation_name is used to look up concrete
         # implementation details for the base relation (if any)
         ir_add_source_structure!(@ir)
+        
+        # create control table for derived relations
+        ir_add_control_table!(@ir)
+        
+        validate_relation_references(@ir)
       end
 
       # iterates through the ir relations. each relation has the
@@ -129,8 +134,10 @@ module ConvergDB
       # of itself.
       # @param [Array<Hash>] ir
       # @param [Array<Hash>] dsd_ir
+      # @param [Symbol] new attribute name in ir target (ignored if nil)
       # @param [Symbol] attribute name of attribute to copy from dsd_ir
-      def ir_add_dsd_attribute!(ir, dsd_ir, attribute)
+      def ir_add_dsd_attribute!(ir, dsd_ir, attribute, override=nil)
+        attribute = override ? override : attribute
         ir.keys.each do |k|
           if dsd_ir[ir[k][:dsd]]
             ir[k][attribute] = dsd_ir[ir[k][:dsd]][attribute]
@@ -140,6 +147,23 @@ module ConvergDB
         end
       end
 
+      # iterates through the ir relations. each relation has the
+      # attribute looked up on the dsd_ir... then stored as an attribute
+      # of itself.
+      # @param [Array<Hash>] ir
+      # @param [Array<Hash>] dsd_ir
+      # @param [Symbol] attribute name of attribute to copy from dsd_ir
+      # @param [Symbol] new attribute name in ir target
+      def ir_add_dsd_attribute_with_override!(ir, dsd_ir, attribute, override)
+        ir.keys.each do |k|
+          if dsd_ir[ir[k][:dsd]]
+            ir[k][attribute] = dsd_ir[ir[k][:dsd]][attribute]
+          else
+            raise "undefined schema object: #{ir[k][:dsd]}"
+          end
+        end
+      end
+      
       # sets the full_source_relation_name on each of the derived relations.
       # @param [Array<Hash>] ir
       # @param [Array<Hash>] dsd_ir
@@ -154,7 +178,9 @@ module ConvergDB
           end
         end
       end
-
+      
+      # adds the source structure to the current ir of a relation
+      # if the relation is not a base relation.
       # @param [Array<Hash>] ir
       def ir_add_source_structure!(ir)
         ir.keys.each do |k|
@@ -162,6 +188,18 @@ module ConvergDB
             ir[k][:source_structure] = ir[
               ir[k][:full_source_relation_name]
             ]
+          end
+        end
+      end
+      
+      # adds control table name to the IR for derived relations.
+      # @param [Array<Hash>] ir
+      def ir_add_control_table!(ir)
+        ir.keys.each do |k|
+          if ir[k][:full_source_relation_name]
+            database = 'convergdb_control_${deployment_id}'
+            table = ir[k][:full_relation_name].gsub('.','__')
+            ir[k][:control_table] = "#{database}.#{table}"
           end
         end
       end
@@ -265,6 +303,31 @@ module ConvergDB
           end
         end
         h
+      end
+
+      def primary_ir_by_relation_name(primary_ir, full_relation_name)
+        primary_ir.each do |primary|
+          if primary[:full_relation_name] == full_relation_name
+            return primary
+          end
+        end
+        raise "#{full_relation_name} not found in primary representation"
+      end
+
+      # validates that all derived relations are pointing to a base
+      # relation of the correct "class".. meaning that the dsd
+      # of the source relation is what was specified in the dsd, regardless
+      # of any overrides.
+      # @param [Hash] primary_ir
+      def validate_relation_references(primary_ir)
+        primary_ir.keys.each do |k|
+          if primary_ir[k][:source_dsd_name]
+            unless primary_ir[k][:source_structure][:dsd] == primary_ir[k][:source_dsd_name]
+              raise "#{primary_ir[k][:full_source_relation_name]} is not an implementation of #{primary_ir[k][:source_dsd_name]} as required by #{primary_ir[k][:full_relation_name]}... which is an implementation of #{primary_ir[k][:dsd]}"
+            end
+          end
+        end
+        nil
       end
     end
   end

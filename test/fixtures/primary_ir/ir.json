@@ -1,6 +1,7 @@
 {
   "production.ecommerce.inventory.books_source": {
     "generators": [
+      "streaming_inventory",
       "s3_source",
       "markdown_doc",
       "html_doc"
@@ -13,6 +14,10 @@
     "relation_name": null,
     "storage_bucket": "demo-source-us-east-2.beyondsoft.us",
     "storage_format": "json",
+    "inventory_table": "",
+    "streaming_inventory": "false",
+    "streaming_inventory_output_bucket": null,
+    "streaming_inventory_table": null,
     "attributes": [
       {
         "name": "item_number",
@@ -131,9 +136,9 @@
     "relation_type": 1,
     "source_dsd_name": "ecommerce.inventory.books_source",
     "full_source_relation_name": "production.ecommerce.inventory.books_source",
-    "working_path" : "/tmp",
     "source_structure" : {
       "generators": [
+        "streaming_inventory",
         "s3_source",
         "markdown_doc",
         "html_doc"
@@ -146,6 +151,10 @@
       "relation_name": null,
       "storage_bucket": "demo-source-us-east-2.beyondsoft.us",
       "storage_format": "json",
+      "inventory_table": "",
+      "streaming_inventory": "false",
+      "streaming_inventory_output_bucket": null,
+      "streaming_inventory_table": null,
       "attributes": [
         {
           "name": "item_number",
@@ -189,7 +198,8 @@
       "relation_type": 0,
       "source_dsd_name": null,
       "working_path" : "/tmp"
-    }
-    
+    },
+    "control_table": "convergdb_control_${deployment_id}.production__ecommerce__inventory__books",
+    "working_path" : "/tmp"
   }
 }

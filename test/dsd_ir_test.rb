@@ -21,6 +21,12 @@ module ConvergDB
         is_err
       end
 
+      def catch_error
+        yield
+      rescue => e
+        return e
+      end
+      
       def tree_down_to(depth)
         h = {}
         h[:domains] = Domains.new
@@ -433,6 +439,75 @@ module ConvergDB
           false,
           raises_error?(t[:relation], :validate),
           JSON.pretty_generate(t[:relation].structure)
+        )
+      end
+
+      def test_validate_partition_fields
+        r = ConvergDB::DSD::Relation.new(nil, nil)
+        
+        # single field valid
+        t = catch_error do
+          r.validate_partition_fields(
+            ['field1'],
+            ['field1','field2','field3']
+          )
+        end
+        
+        assert_equal(
+          NilClass,
+          t.class
+        )
+
+        # single field invalid
+        t = catch_error do
+          r.validate_partition_fields(
+            ['field1'],
+            ['field2','field3']
+          )
+        end
+        
+        assert_equal(
+          RuntimeError,
+          t.class
+        )
+        
+        # multi-field valid
+        t = catch_error do
+          r.validate_partition_fields(
+            ['field1', 'field2'],
+            ['field1','field2','field3']
+          )
+        end
+        
+        assert_equal(
+          NilClass,
+          t.class
+        )
+        
+        # multi-field invalid
+        t = catch_error do
+          r.validate_partition_fields(
+            ['field1', 'field2'],
+            ['field1', 'field3']
+          )
+        end
+        
+        assert_equal(
+          RuntimeError,
+          t.class
+        )
+
+        # multi-field with convergdb_batch_id
+        t = catch_error do
+          r.validate_partition_fields(
+            ['convergdb_batch_id','field1'],
+            ['field1', 'field3']
+          )
+        end
+        
+        assert_equal(
+          NilClass,
+          t.class
         )
       end
 

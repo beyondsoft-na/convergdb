@@ -83,7 +83,8 @@ module ConvergDB
         s3_source: AWSS3Source,
         markdown_doc: MarkdownDoc,
         html_doc: HtmlDoc,
-        control_table: AWSAthenaControlTableGenerator
+        control_table: AWSAthenaControlTableGenerator,
+        streaming_inventory: StreamingInventoryTableGenerator
       }
     end
 
@@ -393,3 +394,4 @@ require_relative 's3_source/s3_source.rb'
 require_relative 'markdown_doc/markdown_doc.rb'
 require_relative 'html_doc/html_doc.rb'
 require_relative 'control_table/control_table.rb'
+require_relative 'streaming_inventory/streaming_inventory.rb'

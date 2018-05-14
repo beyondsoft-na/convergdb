@@ -154,6 +154,7 @@ module ConvergDB
 
         assert_equal(
           [
+            ConvergDB::Generators::StreamingInventoryTableGenerator,
             ConvergDB::Generators::AWSS3Source,
             ConvergDB::Generators::MarkdownDoc,
             ConvergDB::Generators::HtmlDoc,

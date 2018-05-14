@@ -22,7 +22,17 @@ require 'json'
 require 'pp'
 
 class CLI < Thor
-  desc "generate", "generate artifacts for this configuration"
+  package_name "convergdb"
+  
+  desc "generate", "generate configuration"
+  long_desc <<-LONGDESC
+`convergdb generate` will analyze the following files in the local directory in
+order to build the deployment artifacts:
+
+    *.schema
+
+    *.deployment
+  LONGDESC
   def generatetf()
     ConvergDB::Interactions::Generate.new(
       Dir.glob('./*.schema'),

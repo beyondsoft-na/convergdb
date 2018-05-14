@@ -16,5 +16,5 @@
 
 module ConvergDB
   # version number for this gem
-  VERSION = '0.0.6.5'
+  VERSION = '0.0.6.6'
 end

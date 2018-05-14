@@ -34,7 +34,7 @@ module ConvergDB
       def test_resource_type
         nil
       end
-      
+
       # attr_reader
       def test_validation_regex
         nil
@@ -528,8 +528,105 @@ module ConvergDB
       end
     end
 
-    class TestTerraformBuilder < Minitest::Test
+    class TestStreamingInventoryModule < Minitest::Test
+      def initializer
+        {
+          resource_id: 'streaming_inventory_some__bucket',
+          storage_bucket: 'some.bucket/prefix',
+          streaming_inventory_output_bucket: 'inventory.bucket/prefix/'
+        }
+      end
 
+      def streaming_inventory_module(params=initializer)
+        StreamingInventoryModule.new(params)
+      end
+
+      def test_initialize
+        t = streaming_inventory_module
+
+        assert_equal(
+          'streaming_inventory_some__bucket',
+          t.resource_id
+        )
+
+        assert_equal(
+          "${var.region}",
+          t.region
+        )
+
+        assert_equal(
+          "some.bucket",
+          t.source_bucket
+        )
+
+        assert_equal(
+          "convergdb-${var.deployment_id}-eaccd2f51cbee31dfd8adf145c26a246",
+          t.firehose_stream_name
+        )
+
+        assert_equal(
+          "inventory.bucket",
+          t.destination_bucket
+        )
+
+        assert_equal(
+          'prefix/',
+          t.destination_prefix
+        )
+
+        assert_equal(
+          "convergdb-${var.deployment_id}-eaccd2f51cbee31dfd8adf145c26a246",
+          t.lambda_name
+        )
+      end
+
+      def test_inventory_stream_name
+        t = streaming_inventory_module
+
+        assert_equal(
+          'convergdb-${var.deployment_id}-c7e1a9d9fe4a685973e87738807335dd',
+          t.inventory_stream_name('storage_bucket')
+        )
+      end
+
+      def test_lambda_function_name
+        t = streaming_inventory_module
+
+        assert_equal(
+          'convergdb-${var.deployment_id}-c7e1a9d9fe4a685973e87738807335dd',
+          t.lambda_function_name('storage_bucket')
+        )
+      end
+
+      def test_structure
+        t = streaming_inventory_module
+
+        expected = {
+          resource_id: 'streaming_inventory_some__bucket',
+          resource_type: :streaming_inventory_module,
+          structure: {
+            module: {
+              'streaming_inventory_some__bucket' => {
+                source: './modules/streaming_inventory',
+                region: '${var.region}',
+                firehose_stream_name: 'convergdb-${var.deployment_id}-eaccd2f51cbee31dfd8adf145c26a246',
+                source_bucket: 'some.bucket',
+                destination_bucket: 'inventory.bucket',
+                destination_prefix: 'prefix/',
+                lambda_name: 'convergdb-${var.deployment_id}-eaccd2f51cbee31dfd8adf145c26a246'
+              }
+            }
+          }
+        }
+
+        assert_equal(
+          expected,
+          t.structure
+        )
+      end
+    end
+
+    class TestTerraformBuilder < Minitest::Test
       def terraform_builder
         TerraformBuilder.new
       end
@@ -655,6 +752,59 @@ module ConvergDB
         assert_equal(
           AWSGlueETLJobModule,
           t.resources.first.class
+        )
+      end
+
+      def test_streaming_inventory_module!
+        t = terraform_builder
+        # add a streaming inventory module
+        t.streaming_inventory_module!(
+          {
+            resource_id: 'streaming_inventory_some__bucket',
+            storage_bucket: 'some.bucket/prefix',
+            streaming_inventory_output_bucket: 'inventory.bucket/prefix/'
+          }
+        )
+
+        # check that the correct class was created
+        assert_equal(
+          StreamingInventoryModule,
+          t.resources.first.class
+        )
+
+        # check that a single resources was created
+        assert_equal(
+          1,
+          t.resources.length
+        )
+
+        # apply identical mutation again
+        t.streaming_inventory_module!(
+          {
+            resource_id: 'streaming_inventory_some__bucket',
+            storage_bucket: 'some.bucket/prefix',
+            streaming_inventory_output_bucket: 'inventory.bucket/prefix/'
+          }
+        )
+
+        # confirm idempotent handling for identical mutation
+        assert_equal(
+          1,
+          t.resources.length
+        )
+
+        # apply a different mutation
+        t.streaming_inventory_module!(
+          {
+            resource_id: 'streaming_inventory_some__bucket__2',
+            storage_bucket: 'some.bucket.2/prefix',
+            streaming_inventory_output_bucket: 'inventory.bucket/prefix/'
+          }
+        )
+
+        assert_equal(
+          2,
+          t.resources.length
         )
       end
     end

@@ -108,8 +108,8 @@ module ConvergDB
 
         assert(
           file_contents_match?(
-            "#{File.dirname(__FILE__)}/../lib/generators/glue/convergdb_pyspark_library.py",
-            "#{test_working_path}/terraform/aws_glue/convergdb_pyspark_library.py"
+            "#{File.dirname(__FILE__)}/../lib/generators/glue/convergdb.zip",
+            "#{test_working_path}/terraform/aws_glue/convergdb.zip"
           )
         )
       ensure
@@ -138,7 +138,7 @@ module ConvergDB
         g = glue_generator
 
         assert_equal(
-          "#{g.tf_glue_path(g.structure)}/convergdb_pyspark_library.py",
+          "#{g.tf_glue_path(g.structure)}/convergdb.zip",
           g.pyspark_library_path(g.structure)
         )
       end
@@ -152,7 +152,7 @@ module ConvergDB
         assert(File.exist?(test_path))
 
         assert_equal(
-          %{import convergdb_pyspark_library\n\n},
+          %{import convergdb\nfrom convergdb.glue_header import *\n\n},
           File.read(test_path)
         )
       ensure
@@ -170,7 +170,7 @@ module ConvergDB
         )
 
         assert_equal(
-          %{import convergdb_pyspark_library\n\ntest append\n\n},
+          %{import convergdb\nfrom convergdb.glue_header import *\n\ntest append\n\n},
           File.read(test_path)
         )
       ensure
@@ -214,7 +214,7 @@ module ConvergDB
       
       def test_pyspark_library_key
         g = glue_generator
-        expected = %{#{g.pyspark_s3_key_prefix(g.structure)}/convergdb_pyspark_library.py}
+        expected = %{#{g.pyspark_s3_key_prefix(g.structure)}/convergdb.zip}
 
         assert_equal(
           expected,
@@ -349,6 +349,7 @@ module ConvergDB
           File.read(
             "#{File.dirname(__FILE__)}/fixtures/glue/pyspark_source_to_target.py"
           ),
+          g.pyspark_source_to_target(g.structure),
           g.pyspark_source_to_target(g.structure)
         )
       end

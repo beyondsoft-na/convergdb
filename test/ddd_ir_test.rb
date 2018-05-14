@@ -148,11 +148,6 @@ module ConvergDB
           false,
           raises_error?(t[:top_level], :resolve!)
         )
-
-#         assert_equal(
-#           t[:relation].region,
-#           t[:deployment].region
-#         )
       end
 
       def test_structure
@@ -315,7 +310,6 @@ module ConvergDB
             environment: 'env1',
             schema_name: 'schema',
             domain_name: 'database',
-          #   region: 'us-west-2',
             service_role: 'glueService',
             script_bucket: 'script-bucket',
             temp_s3_location: 's3://temp/s3loc/',
@@ -409,9 +403,8 @@ module ConvergDB
       end
 
       def test_resolve!
+        # test basic resolve actions
         t = tree_down_to(:athena, :relation)
-
-        # t[:deployment].region = 'us-west-2'
         t[:deployment].service_role = 'glueService'
         t[:relation].dsd = 'domain.schema.relation'
 
@@ -431,6 +424,43 @@ module ConvergDB
             t[:relation].service_role,
             t[:relation].full_relation_name
           ]
+        )
+        
+        # resolve actions for inventory
+        t = tree_down_to(:athena, :relation)
+        t[:deployment].service_role = 'glueService'
+        t[:relation].dsd = 'domain.schema.relation'
+        t[:top_level].resolve!
+        
+        assert_equal(
+          'default',
+          t[:relation].inventory_source
+        )
+        
+        # resolve for when both inventory attributes specified
+        # inventory_source takes precedence
+        t = tree_down_to(:athena, :relation)
+        t[:deployment].service_role = 'glueService'
+        t[:relation].dsd = 'domain.schema.relation'
+        t[:relation].use_inventory = 'true'
+        t[:relation].inventory_source = 'streaming'
+        t[:top_level].resolve!
+        
+        assert_equal(
+          'streaming',
+          t[:relation].inventory_source
+        )
+        
+        # resolve for when only use_inventory specified
+        t = tree_down_to(:athena, :relation)
+        t[:deployment].service_role = 'glueService'
+        t[:relation].dsd = 'domain.schema.relation'
+        t[:relation].use_inventory = 'true'
+        t[:top_level].resolve!
+        
+        assert_equal(
+          's3',
+          t[:relation].inventory_source
         )
       end
 
@@ -478,6 +508,7 @@ module ConvergDB
             storage_format: 'parquet',
             source_relation_prefix: 'domain2.schema2.relation2',
             use_inventory: 'true',
+            inventory_source: 's3',
             etl_job_name: 'etl_job',
             etl_job_schedule: 'cron(0 0 * * ? *)',
             etl_job_dpu: 22
@@ -663,6 +694,7 @@ module ConvergDB
         t = tree_down_to(:s3_source, :relation)
         # t[:deployment].region = 'us-west-2'
         t[:relation].dsd = 'domain.schema.relation'
+        t[:relation].storage_bucket = 'bucket-name'
         t[:top_level].resolve!
 
 #         assert_equal(
@@ -719,12 +751,7 @@ module ConvergDB
           [:schema_name, 'valid', true],
           [:schema_name, 'in valid', false],
           [:schema_name, '1', false],
-          [:schema_name, 's3://something', false],
-
-#           [:region, 'us-west-2', true],
-#           [:region, 'us-east-2', true],
-#           [:region, 'ap-southeast-2', true],
-#           [:region, 'some-other-crap', false],
+          [:schema_name, 's3://something', false]
         ].each do |t|
           # if the regex specified by t[0] value of validation_regex hash
           # returns an object the actual value is true... otherwise
@@ -750,11 +777,17 @@ module ConvergDB
         )
       end
 
-      def test_resolve!
+      def resolve_structure_base
         t = tree_down_to(:s3_source, :relation)
         t[:relation].dsd = 'domain.schema.relation'
         t[:deployment].domain_name = 'domain2'
         t[:deployment].schema_name = 'schema2'
+        t[:relation].storage_bucket = 'bucket-name'
+        t
+      end
+      
+      def test_resolve!
+        t = resolve_structure_base
         t[:relation].resolve!
         
         # sourced from parent deployment
@@ -783,8 +816,56 @@ module ConvergDB
         )
         
         assert_equal(
-          '${data_bucket}/${deployment_id}/env1.domain2.schema2.relation',
-          t[:relation].storage_bucket
+          '',
+          t[:relation].inventory_table
+        )
+
+        assert_equal(
+          'false',
+          t[:relation].streaming_inventory
+        )
+        
+        assert_equal(
+          nil,
+          t[:relation].streaming_inventory_output_bucket
+        )
+
+        assert_equal(
+          nil,
+          t[:relation].streaming_inventory_table
+        )
+        
+        # deeper testing for inventory handling
+        t = resolve_structure_base
+        t[:relation].streaming_inventory = 'true'
+        t[:relation].resolve!
+        
+        assert_equal(
+          '${var.admin_bucket}/${var.deployment_id}/streaming_inventory/bucket-name/',
+          t[:relation].streaming_inventory_output_bucket
+        )
+        
+        assert_equal(
+          'convergdb_inventory_${deployment_id}.bucket__name',
+          t[:relation].streaming_inventory_table
+        )
+        
+        # streaming inventory attributes specified
+        t = resolve_structure_base
+        t[:relation].storage_bucket = 'bucket-name/some/prefix'
+        t[:relation].streaming_inventory = 'true'
+        t[:relation].streaming_inventory_output_bucket = 'bucket/prefix'
+        t[:relation].streaming_inventory_table = 'this_database.this_table'
+        t[:relation].resolve!
+        
+        assert_equal(
+          'bucket/prefix',
+          t[:relation].streaming_inventory_output_bucket
+        )
+
+        assert_equal(
+          'this_database.this_table',
+          t[:relation].streaming_inventory_table
         )
       end
 
@@ -803,6 +884,7 @@ module ConvergDB
         assert_equal(
           {
             generators: [
+              :streaming_inventory,
               :s3_source, 
               :markdown_doc, 
               :html_doc
@@ -815,7 +897,10 @@ module ConvergDB
             relation_name: 'relation2',
             storage_bucket: 'some-bucket',
             storage_format: 'json',
-            inventory_table: ''
+            inventory_table: '',
+            streaming_inventory: "false",
+            streaming_inventory_output_bucket: nil,
+            streaming_inventory_table: nil
           },
           t[:relation].structure
         )
@@ -865,6 +950,11 @@ module ConvergDB
           [:storage_bucket, 'storage-bucket', true],
           [:storage_bucket, 's3://bucket', true],
 
+          [:streaming_inventory, 'true', true],
+          [:streaming_inventory, 'false', true],
+          [:streaming_inventory, 'True', true],
+          [:streaming_inventory, 'josemadre', false],
+          
         ].each do |t|
           # if the regex specified by t[0] value of validation_regex hash
           # returns an object the actual value is true... otherwise
@@ -882,6 +972,7 @@ module ConvergDB
       def test_resolve_full_relation_name
         a = tree_down_to(:s3_source, :relation)[:relation]
         a.dsd = 'domain.schema.relation'
+        a.storage_bucket = 'bucket-name'
         a.resolve!
         assert_equal(
           'env1.domain.schema.relation',
@@ -890,6 +981,7 @@ module ConvergDB
 
         a = tree_down_to(:s3_source, :relation)[:relation]
         a.dsd = 'domain.schema.relation'
+        a.storage_bucket = 'bucket-name'
         a.domain_name = 'domain2'
         a.resolve!
         assert_equal(
@@ -899,6 +991,7 @@ module ConvergDB
 
         a = tree_down_to(:s3_source, :relation)[:relation]
         a.dsd = 'domain.schema.relation'
+        a.storage_bucket = 'bucket-name'
         a.schema_name = 'schema2'
         a.resolve!
         assert_equal(
@@ -908,6 +1001,7 @@ module ConvergDB
 
         a = tree_down_to(:s3_source, :relation)[:relation]
         a.dsd = 'domain.schema.relation'
+        a.storage_bucket = 'bucket-name'
         a.relation_name = 'relation2'
         a.resolve!
         assert_equal(
@@ -917,6 +1011,7 @@ module ConvergDB
 
         a = tree_down_to(:s3_source, :relation)[:relation]
         a.dsd = 'domain.schema.relation'
+        a.storage_bucket = 'bucket-name'
         a.domain_name = 'domain2'
         a.schema_name = 'schema2'
         a.relation_name = 'relation2'

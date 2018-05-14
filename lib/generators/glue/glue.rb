@@ -30,6 +30,25 @@ module ConvergDB
         @structure[:sns_topic] = "${sns_topic}"
         @structure[:cloudwatch_namespace] = "${cloudwatch_namespace}"
       end
+      
+      
+      # provides a mask for the structure that is provided to the template_file
+      # used for the ETL script.
+      # @params[Hash] structure
+      # @return [Hash] structure with ephemeral overrides
+      def script_structure(structure)
+        t = structure.clone
+        if t[:source_structure][:streaming_inventory_output_bucket]
+          t[:source_structure][:streaming_inventory_output_bucket].gsub!(
+            'var.admin_bucket',
+            'admin_bucket'
+          ).gsub!(
+            'var.deployment_id',
+            'deployment_id'
+          )
+        end
+        t
+      end
 
       # generates the artifacts
       def generate!
@@ -87,7 +106,7 @@ module ConvergDB
         FileUtils.mkdir_p("#{structure[:working_path]}/terraform/aws_glue")
 
         FileUtils.cp(
-          "#{File.dirname(__FILE__)}/convergdb_pyspark_library.py",
+          "#{File.dirname(__FILE__)}/convergdb.zip",
           pyspark_library_path(structure),
         )
       end
@@ -107,14 +126,15 @@ module ConvergDB
       # @param [Hash] structure
       # @return [String] path to pyspark library
       def pyspark_library_path(structure)
-        "#{tf_glue_path(structure)}/convergdb_pyspark_library.py"
+        "#{tf_glue_path(structure)}/convergdb.zip"
       end
 
       # @param [String] script_path
       def create_etl_script_if_not_exists!(script_path)
         unless File.exist?(script_path)
           File.open(script_path, 'w') do |f|
-            f.puts('import convergdb_pyspark_library')
+            f.puts('import convergdb')
+            f.puts('from convergdb.glue_header import *')
             f.puts
           end
         end
@@ -134,13 +154,11 @@ module ConvergDB
       # @param [Hash] structure dsd_ddd_ir
       def pyspark_source_to_target(structure)
         ret = []
-        ret << 'convergdb_pyspark_library.source_to_target('
+        ret << 'convergdb.source_to_target('
+        ret << '  sql_context(),'
         ret << '"""'
-        ret << JSON.pretty_generate(structure)
-        ret << '""",'
-        ret << pyspark_source_lambda_func(
-          structure[:source_structure][:attributes]
-        )
+        ret << JSON.pretty_generate(script_structure(structure))
+        ret << '"""'
         ret << ')'
         ret.join("\n")
       end

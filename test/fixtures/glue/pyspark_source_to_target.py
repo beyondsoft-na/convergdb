@@ -1,4 +1,5 @@
-convergdb_pyspark_library.source_to_target(
+convergdb.source_to_target(
+  sql_context(),
 """
 {
   "generators": [
@@ -80,9 +81,9 @@ convergdb_pyspark_library.source_to_target(
   "relation_type": 1,
   "source_dsd_name": "ecommerce.inventory.books_source",
   "full_source_relation_name": "production.ecommerce.inventory.books_source",
-  "working_path": "/tmp",
   "source_structure": {
     "generators": [
+      "streaming_inventory",
       "s3_source",
       "markdown_doc",
       "html_doc"
@@ -95,6 +96,10 @@ convergdb_pyspark_library.source_to_target(
     "relation_name": null,
     "storage_bucket": "demo-source-us-east-2.beyondsoft.us",
     "storage_format": "json",
+    "inventory_table": "",
+    "streaming_inventory": "false",
+    "streaming_inventory_output_bucket": null,
+    "streaming_inventory_table": null,
     "attributes": [
       {
         "name": "item_number",
@@ -144,17 +149,12 @@ convergdb_pyspark_library.source_to_target(
     "source_dsd_name": null,
     "working_path": "/tmp"
   },
+  "control_table": "convergdb_control_${deployment_id}.production__ecommerce__inventory__books",
+  "working_path": "/tmp",
   "deployment_id": "${deployment_id}",
   "region": "${region}",
   "sns_topic": "${sns_topic}",
   "cloudwatch_namespace": "${cloudwatch_namespace}"
 }
-""",
-lambda doc : {
-  "item_number" : doc.get("item_number",None),
-  "title" : doc.get("title",None),
-  "author" : doc.get("author",None),
-  "price" : doc.get("price",None),
-  "stock" : doc.get("stock",None)
-}
+"""
 )

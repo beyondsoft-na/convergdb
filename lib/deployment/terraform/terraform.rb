@@ -338,6 +338,78 @@ module ConvergDB
       end
     end
 
+    # creates a glue etl job
+    class StreamingInventoryModule < BaseTerraform
+      attr_accessor :region
+      attr_accessor :source
+      attr_accessor :source_bucket
+      attr_accessor :destination_bucket
+      attr_accessor :destination_prefix
+      attr_accessor :firehose_stream_name
+      attr_accessor :lambda_name
+
+      # @param [Hash] params
+      def initialize(params)
+        @resource_id = params[:resource_id]
+        @region = params[:region] ? params[:region] : "${var.region}"
+        @source = './modules/streaming_inventory'
+        @source_bucket = params[:storage_bucket].split('/')[0]
+        @firehose_stream_name = inventory_stream_name(@source_bucket)
+        @destination_bucket = params[
+          :streaming_inventory_output_bucket
+        ].split('/')[0]
+        @destination_prefix = params[
+          :streaming_inventory_output_bucket
+        ].split('/', 2)[1]
+        @lambda_name = lambda_function_name(@source_bucket)
+      end
+      
+      # creates a name for the inventory stream
+      # @param [String] storage_bucket
+      # @return [String]
+      def inventory_stream_name(storage_bucket)
+        b = Digest::MD5.new.hexdigest(
+          storage_bucket.split('/')[0]
+        ) # rubocop
+        "convergdb-${var.deployment_id}-#{b}"
+      end
+
+      # @return [Hash]
+      def validation_regex
+        {
+          resource_id: { regex: /.*/, mandatory: true }
+        }
+      end
+
+      # @param [String] source_bucket
+      # @return [String] unique name for lambda
+      def lambda_function_name(source_bucket)
+        bucket_hex = Digest::MD5.new.hexdigest(source_bucket)
+        "convergdb-${var.deployment_id}-#{bucket_hex}"
+      end
+
+      # @return [Hash]
+      def structure
+        {
+          resource_id: @resource_id,
+          resource_type: :streaming_inventory_module,
+          structure: {
+            module: {
+              @resource_id => {
+                source: @source,
+                region: @region,
+                firehose_stream_name: @firehose_stream_name,
+                source_bucket: @source_bucket,
+                destination_bucket: @destination_bucket,
+                destination_prefix: @destination_prefix,
+                lambda_name: @lambda_name
+              }
+            }
+          }
+        }
+      end
+    end
+
     # builder object for a terraform deployment.
     class TerraformBuilder < BaseTerraform
       # @return [Array<BaseTerraform>]
@@ -404,6 +476,15 @@ module ConvergDB
       def aws_glue_etl_job_module!(params)
         unless resource_id_exists?(to_underscore(params[:resource_id]))
           g = AWSGlueETLJobModule.new(params)
+          @resources << g
+        end
+      end
+      
+      # Idempotently appends a StreamingInventoryModule to the resources array.
+      # @param [Hash] params
+      def streaming_inventory_module!(params)
+        unless resource_id_exists?(params[:resource_id])
+          g = StreamingInventoryModule.new(params)
           @resources << g
         end
       end

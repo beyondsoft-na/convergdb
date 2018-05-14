@@ -80,6 +80,45 @@ module ConvergDB
           depends_on: ["production.test_database.test_schema.books_source"]
         }
       end
+
+      def self.dsd_ddd_test_s3_source
+        {
+          full_relation_name: "production.test_database.test_schema.books",
+          dsd: 'test_database.test_schema.books',
+          namespace: "production",
+          database_name: "test_database",
+          schema_name: "test_schema",
+          relation_name: "books",
+          generators: [:streaming_inventory, :s3_source], # indicates which structure to pass to as parameters
+          storage_bucket: "fakedata-source.beyondsoft.us", # defaulted via tf
+          streaming_inventory: 'true',
+          streaming_inventory_output_bucket: 'bucket/location',
+          storage_format: "json", # defaulted via tf
+          attributes: [
+            {
+              name: "title",
+              data_type: "varchar(100)",
+              expression: "title"
+            },
+            {
+              name: "author",
+              data_type: "varchar(100)",
+              expression: "author"
+            },
+            {
+              name: "publisher",
+              data_type: "varchar(100)",
+              expression: "publisher"
+            },
+            {
+              name: "genre",
+              data_type: "varchar(100)",
+              expression: "genre"
+            }
+          ],
+          resolved: true
+        }
+      end
       
       # has multiple generator input structures
       def self.dsd_ddd_test_03

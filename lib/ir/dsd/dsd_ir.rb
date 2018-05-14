@@ -265,6 +265,24 @@ module ConvergDB
         raise 'attribute names invalid' unless attribute_names_valid?
         validate_string_attributes
         @attributes.each(&:validate)
+        validate_partition_fields(
+          @partitions,
+          attribute_names
+        )
+      end
+
+      # validates that the partition fields specified actually
+      # exist as attribute names. the exception is convergdb_batch_id
+      # which is available as an exposed partition in any convergdb relation.
+      # @param [Array<String>] partition_fields 
+      # @param [Array<String>] attribute_names
+      def validate_partition_fields(partition_fields, attribute_names)
+        partition_fields.select do |partition_field|
+          unless attribute_names.insert(-1, 'convergdb_batch_id').include?(partition_field)
+            raise "partition field #{partition_field} undefined in relation #{@name}"
+          end
+        end
+        nil
       end
 
       # return [Array<String>] list of attribute names in order
