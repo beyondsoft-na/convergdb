@@ -18,12 +18,6 @@
     "streaming_inventory": "false",
     "streaming_inventory_output_bucket": null,
     "streaming_inventory_table": null,
-    "csv_header": null,
-    "csv_separator": null,
-    "csv_quote": null,
-    "csv_null": null,
-    "csv_escape": null,
-    "csv_trim": null,
     "attributes": [
       {
         "name": "item_number",
@@ -65,7 +59,8 @@
 
     ],
     "relation_type": 0,
-    "source_dsd_name": null
+    "source_dsd_name": null,
+    "working_path" : "/tmp"
   },
   "production.ecommerce.inventory.books": {
     "generators": [
@@ -89,14 +84,12 @@
     "state_bucket": "demo-state-us-east-2.beyondsoft.us",
     "storage_format": "parquet",
     "source_relation_prefix": null,
-    "inventory_source": "default",
-    "use_inventory": "false",
     "etl_job_name": "nightly_batch",
     "etl_job_schedule": "cron(0 0 * * ? *)",
-    "etl_job_dpu" : 20,
-    "etl_technology" : "aws_glue",
-    "etl_docker_image" : null,
-    "etl_docker_image_digest" : null,
+    "etl_job_dpu": null,
+    "etl_technology": "aws_fargate",
+    "etl_docker_image": "beyondsoftna/convergdb",
+    "etl_docker_image_digest": "abc123",
     "attributes": [
       {
         "name": "item_number",
@@ -166,14 +159,6 @@
       "streaming_inventory": "false",
       "streaming_inventory_output_bucket": null,
       "streaming_inventory_table": null,
-      
-      "csv_header": null,
-      "csv_separator": null,
-      "csv_quote": null,
-      "csv_null": null,
-      "csv_escape": null,
-      "csv_trim": null,
-
       "attributes": [
         {
           "name": "item_number",
@@ -215,8 +200,10 @@
   
       ],
       "relation_type": 0,
-      "source_dsd_name": null
+      "source_dsd_name": null,
+      "working_path" : "/tmp"
     },
-    "control_table": "convergdb_control_${deployment_id}.production__ecommerce__inventory__books"
+    "control_table": "convergdb_control_${deployment_id}.production__ecommerce__inventory__books",
+    "working_path" : "/tmp"
   }
 }

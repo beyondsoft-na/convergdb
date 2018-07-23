@@ -17,7 +17,8 @@ module ConvergDB
       def base_generator
         ConvergDB::Generators::BaseGenerator.new(
           {},
-          ConvergDB::Deployment::TerraformBuilder.new
+          ConvergDB::Deployment::TerraformBuilder.new,
+          nil
         )
       end
 
@@ -160,6 +161,7 @@ module ConvergDB
             ConvergDB::Generators::HtmlDoc,
             ConvergDB::Generators::AWSAthena,
             ConvergDB::Generators::AWSGlue,
+            ConvergDB::Generators::AWSFargate,
             ConvergDB::Generators::MarkdownDoc,
             ConvergDB::Generators::HtmlDoc,
             ConvergDB::Generators::AWSAthenaControlTableGenerator
@@ -232,205 +234,15 @@ module ConvergDB
 
         assert_equal(
           [
-            "production.ecommerce.inventory.books"
+            "production__ecommerce__inventory.books"
           ],
           t
-        )
-      end
-
-      def test_apply_existing_athena_relations!
-        m = master_generator
-        m.generators = m.create_generators(m.structure)
-
-        m.apply_existing_athena_relations!(
-          m.generators,
-          comparable_athena_relations
-        )
-
-        filtered = m.generators.select do |g|
-          g.class == ConvergDB::Generators::AWSAthena
-        end
-
-        filtered.each do |g|
-          assert_equal(
-            g.current_state,
-            comparable_athena_relations[g.structure[:full_relation_name]]
-          )
-        end
-      end
-
-      def test_relation_diff_message
-        # each assertion is made by comparing multiple scenarios that are
-        # represented by the athena_relations and current_relations arrays.
-        m = master_generator
-
-        # TEST 1 - current = athena
-        athena_relations = [
-          'production.ecommerce.inventory.books',
-          'production.ecommerce.inventory.books_source'
-        ]
-
-        current_relations = [
-          'production.ecommerce.inventory.books',
-          'production.ecommerce.inventory.books_source'
-        ]
-
-        assert_equal(
-          [
-            Rainbow("ConvergDB relations in Athena:").bright,
-            '  production.ecommerce.inventory.books',
-            '  production.ecommerce.inventory.books_source',
-            '',
-            Rainbow("Relations in current configuration:").bright,
-            '  production.ecommerce.inventory.books',
-            '  production.ecommerce.inventory.books_source',
-            '',
-            ''
-          ],
-          m.relation_diff_message(
-            athena_relations,
-            current_relations
-          ),
-          puts(
-            m.relation_diff_message(
-              athena_relations,
-              current_relations
-            )
-          )
-        )
-
-        # TEST 2 - current has one less relation, triggering removal message
-        current_relations = [
-          'production.ecommerce.inventory.books'
-        ]
-
-        assert_equal(
-          [
-            Rainbow("ConvergDB relations in Athena:").bright,
-            '  production.ecommerce.inventory.books',
-            '  production.ecommerce.inventory.books_source',
-            '',
-            Rainbow("Relations in current configuration:").bright,
-            '  production.ecommerce.inventory.books',
-            '',
-            Rainbow("Relations being removed:").bright.red,
-            Rainbow('  production.ecommerce.inventory.books_source').red,
-            '',
-            ''
-          ],
-          m.relation_diff_message(
-            athena_relations,
-            current_relations
-          ),
-          puts(
-            m.relation_diff_message(
-              athena_relations,
-              current_relations
-            )
-          )
-        )
-
-        # TEST 3 - only creating new relations... none existing
-        athena_relations = []
-
-        current_relations = [
-          'production.ecommerce.inventory.books',
-          'production.ecommerce.inventory.books_source'
-        ]
-
-        assert_equal(
-          [
-            Rainbow("ConvergDB relations in Athena:").bright,
-            '',
-            Rainbow("Relations in current configuration:").bright,
-            '  production.ecommerce.inventory.books',
-            '  production.ecommerce.inventory.books_source',
-            '',
-            ''
-          ],
-          m.relation_diff_message(
-            athena_relations,
-            current_relations
-          ),
-          puts(
-            m.relation_diff_message(
-              athena_relations,
-              current_relations
-            )
-          )
         )
       end
 
       def test_output_glue_etl_job_diff_message
         # can not be tested due to print() nature of the method.
         # see test_glue_etl_job_diff_message
-      end
-
-      def test_glue_etl_job_diff_message
-        m = master_generator
-        m.generators = m.create_generators(m.structure)
-
-        # TEST 1 - job exists, none added or removed
-        t = m.glue_etl_job_diff_message(
-          m.generators,
-          ['nightly_batch']
-        )
-
-        assert_equal(
-          [
-            Rainbow("ConvergDB ETL jobs in Glue:").bright,
-            '  nightly_batch',
-            '',
-            Rainbow("ETL jobs in current configuration:").bright,
-            '  nightly_batch',
-            '',
-            '',
-          ],
-          t,
-          puts(t)
-        )
-
-        # TEST 2 - job added
-        t = m.glue_etl_job_diff_message(
-          m.generators,
-          []
-        )
-
-        assert_equal(
-          [
-            Rainbow("ConvergDB ETL jobs in Glue:").bright,
-            '',
-            Rainbow("ETL jobs in current configuration:").bright,
-            '  nightly_batch',
-            '',
-            '',
-          ],
-          t,
-          puts(t)
-        )
-
-        # TEST 3 - job removed
-        t = m.glue_etl_job_diff_message(
-          m.generators,
-          ['nightly_batch_removed']
-        )
-
-        assert_equal(
-          [
-            Rainbow("ConvergDB ETL jobs in Glue:").bright,
-            '  nightly_batch_removed',
-            '',
-            Rainbow("ETL jobs in current configuration:").bright,
-            '  nightly_batch',
-            '',
-            Rainbow("ETL jobs being removed:").bright.red,
-            Rainbow('  nightly_batch_removed').red,
-            '',
-            ''
-          ],
-          t,
-          puts(t)
-        )
       end
     end
   end

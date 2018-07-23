@@ -22,97 +22,32 @@ require 'pp'
 require 'digest'
 
 require_relative '../generate.rb'
+require_relative '../../exceptions.rb'
 
 module ConvergDB
   # generators to create deployable artifacts
   module Generators
     # used to generate SQL files for athena deployment
     class AWSAthena < ConvergDB::Generators::BaseGenerator
+      include ConvergDB::ErrorHandling
+
       # set by the master generator. this represents the current state
       # of this relation based upon what is currently in AWS.
       attr_accessor :current_state
 
-      # outputs a friendly message about what is happening with this relation.
-      # details of the message are inline with the code.
-      # @param [Hash] structure
-      # @param [Hash] current_state
-      # @param [HashDiff] diff
-      # @return [Array] combination of string and Rainbow objects
-      def message(structure, current_state, diff)
-        # we are going to return an array of objects all of which are
-        # printable strings. the rainbow object adds color codes for terminal
-        # output.
-        m = []
-
-        # relation name in bright green
-        m << Rainbow(
-          "athena: #{structure[:full_relation_name]}"
-        ).bright.green + "\n"
-
-        # if there is no current_state we are treating this
-        # as a new relation... and notifying us about it here
-        m << Rainbow('  new relation').green + "\n" if current_state == {}
-
-        # creates a diff between the current state and current configuration.
-        # the diff is in an Array<Array> with a form + key new_value.
-        # + - ~ all indicate the details.
-        hd = diff
-
-        # check to see if the diff is empty therefore no changes to
-        # make in the deployment. empty diff only indicates no change
-        # if the current state is not empty.
-        if hd.length.zero?
-          m << '  no change' + "\n" if current_state != {}
-        end
-
-        # iterate through each diff record.
-        # append a colorized version to the message array.
-        hd.each do |d|
-          colored = diff_item_coloring(d)
-          m << colored if colored
-        end
-
-        # final newline
-        m << "\n"
-      rescue => e
-        puts 'message error'
-        puts e.message
-        e.backtrace { |b| puts b }
-        raise e
-      end
-
-      # proceses a single element from a HashDiff output and returns
-      # a rainbow colored string if it is a + or -... otherwise returns
-      # nothing
-      # @param [Array] diff
-      # @return [Rainbow]
-      def diff_item_coloring(diff)
-        case diff[0]
-        when '-' then
-          Rainbow("  #{diff[0]} #{diff[1]} = #{diff[2]}").red + "\n"
-        when '+' then
-          Rainbow("  #{diff[0]} #{diff[1]} = #{diff[2]}").green + "\n"
-        when '~' then
-          "  #{diff[0]} #{diff[1]} from '#{diff[2]}' to '#{diff[3]}'" + "\n"
+      # performs tasks such as diffing to the current infrastructure in AWS
+      def post_initialize
+        if self.class == ConvergDB::Generators::AWSAthena
+          diff = perform_diff_to_aws
         end
       end
 
       # generates the artifacts necessary to deploy tables in glue
       # catalog... for use in athena.
       def generate!
-        # outputs a text summary based upon a diff between the current state
-        # and the current configuration.
-        puts(
-          message(
-            @structure,
-            @current_state,
-            HashDiff.diff(@current_state, comparable(@structure))
-          ).join('')
-        )
-
         # insure that the module is in place
         create_static_artifacts!(@structure[:working_path])
-
+        
         @terraform_builder.aws_glue_database_module!(
           aws_glue_database_module_params(@structure)
         )
@@ -125,7 +60,214 @@ module ConvergDB
           )
         )
       end
+      
+      #! DIFF ANALYSIS   
+      # compares the current AWS infrastructure for this relation to
+      # the proposed version in this convergdb run. this is an informational
+      # output that does not change the structure at all. warnings need to be
+      # heeded in order to be effective.
+      def perform_diff_to_aws
+        unless @aws_clients.nil?
+          aws_comparable = comparable_aws_table(
+            aws_glue_catalog_table_response(
+              @aws_clients[:aws_glue],
+              @structure
+            )
+          )
 
+          output_diff(
+            "AWS Glue Catalog Table #{@structure[:full_relation_name]}:",
+            diff_analysis(
+              aws_comparable,
+              comparable(@structure)
+            )
+          )
+        end
+      end
+   
+      # the comment field of an attribute stored by convergdb in the glue catalog
+      # contains the :expression and :data_type objects as they are stored
+      # in convergdb. this is achieved by storing both fields as two 
+      # md5 values with an underscore delimiter.
+      # this is an informative analysis of the changes being made to this table.
+      # @param [Hash] aws_comparable
+      # @param [Hash] comparable_structure
+      # @return [Array<Rainbow>]
+      def diff_analysis(aws_comparable, comparable_structure)
+        # array of diff messages for this relation
+        diff = []
+        ignore_error do          
+          # create a diff of the comparable attributes
+          basic_diff = HashDiff.diff(
+            aws_comparable,
+            comparable_structure
+          )
+          
+          # append the basic diff items to the return array
+          basic_diff.each do |d|
+            diff << diff_item_coloring(d)
+          end
+          
+          # next we perform more subtle analysis of the attributes (columns)
+          # the names of the attributes that exist in AWS for this relation
+          attribute_names = aws_comparable[:attributes].map { |a| a[:name] }
+          
+          aws_attributes = aws_comparable[:attributes]
+          local_attributes = comparable_structure[:attributes]
+          
+          # analyze each attribute that already exists in AWS
+          # no need to compare for new attributes
+          attribute_names.each do |a|
+            # get the aws version of this attribute
+            aws = aws_attributes.select { |b| b[:name] == a }[0]
+            local = local_attributes.select { |b| b[:name] == a }[0]
+            
+            # compute the diff
+            attribute_diff = HashDiff.diff(
+              aws,
+              local
+            )
+            
+            # check to see if anything is different
+            if attribute_diff.length > 0
+              # we only perform the analysis if a local version of this attribute exists
+              if local
+                # compare the expression.. which is the first of the md5 values
+                if aws[:expression].split('_')[0] != local[:expression].split('_')[0]
+                  diff << Rainbow(
+                    "  WARNING: changing #{aws[:name]} expression will only take effect going forward. Rebuild table to apply this change to history."
+                  ).yellow
+                end
+                
+                # then compare the data_type...
+                if aws[:expression].split('_')[1] != local[:expression].split('_')[1]
+                  diff << Rainbow(
+                    "  WARNING: changing #{aws[:name]} data_type may cause problems. Full rebuild of table is recommended."
+                  ).yellow
+                end
+              end
+            end
+          end
+
+          # only check partitions if a comparison is possible.
+          # partitions should not be changed after the table is created.
+          unless aws_comparable == {}
+            # check to see if there is a change in partitions.
+            partition_diff = HashDiff.diff(
+              aws_comparable[:partitions],
+              comparable_structure[:partitions]
+            )
+            
+            # regardless of the change... we suggest rebuilding the table.
+            if partition_diff.length > 0
+              diff << Rainbow(
+                "  WARNING: Changing partition structure requires a full rebuild of table."
+              ).red
+            end
+          end
+        end
+        
+        # return the array of rainbow objects
+        diff
+      end
+
+      # wraps get_table call from aws-glue-sdk. returns response as a hash
+      # instead of struct in order to make testing easier.
+      # @param [Aws::Glue::Client] client
+      # @param [Hash] structure
+      # @return [Hash]
+      def aws_glue_catalog_table_response(client, structure)
+        log_warning('get_table error... diff analysis may be inaccurate') do
+          begin
+            client.get_table(
+              {
+                database_name: structure[:full_relation_name].split('.')[0..2].join('__'),
+                name: structure[:full_relation_name].split('.')[3]
+              }
+            ).to_h
+          rescue Aws::Glue::Errors::EntityNotFoundException
+            nil
+          end
+        end
+      end
+
+      # parses an AWS API response.
+      # @param [Struct] response AWS glue get-table response
+      # @return [Hash]
+      def comparable_aws_table(response)
+        if response
+          # shorthand for rubocop
+          table = response[:table]
+          parameters = table[:parameters]
+          deployment_id = parameters['convergdb_deployment_id']
+          {
+            dsd: parameters['convergdb_dsd'],
+            storage_bucket: convergdb_bucket_reference(
+              parameters['convergdb_storage_bucket'],
+              deployment_id
+            ),
+            state_bucket: convergdb_bucket_reference(
+              parameters['convergdb_state_bucket'],
+              deployment_id
+            ),
+            storage_format: parameters['convergdb_storage_format'],
+            etl_job_name: parameters['convergdb_etl_job_name'],
+            attributes: table[:storage_descriptor][:columns].map do |a|
+              {
+                name: a[:name],
+                data_type: a[:type],
+                expression: a[:comment]
+              }
+            end,
+            partitions: table[:partition_keys].map do |a|
+              {
+                name: a[:name],
+                data_type: a[:type],
+                expression: a[:comment]
+              }
+            end
+          }
+        else
+          {}
+        end
+      end
+
+      # extracts important elements from the structure in order to create a
+      # hash that can be compared to what exists in AWS (if anything).
+      # @param [Hash] structure
+      # @return [Hash]
+      def comparable(structure)
+        partitions = []
+        structure[:partitions].each do |part|
+          structure[:attributes].each do |a|
+            partitions << a if a[:name] == part
+          end
+        end
+
+        {
+          dsd: structure[:dsd] || '',
+          storage_bucket: structure[:storage_bucket] || '',
+          state_bucket: structure[:state_bucket] || '',
+          storage_format: structure[:storage_format] || '',
+          etl_job_name: structure[:etl_job_name] || '',
+          attributes: structure[:attributes].select{ |x| !structure[:partitions].include?(x[:name]) }.map do |a|
+            {
+              name: a[:name],
+              data_type: athena_data_type(a[:data_type]),
+              expression: "#{Digest::MD5.new.hexdigest(a[:expression].to_s)}_#{Digest::MD5.new.hexdigest(a[:data_type].to_s)}" || ''
+            }
+          end,
+          partitions: partitions.map do |a|
+            {
+              name: a[:name],
+              data_type: athena_data_type(a[:data_type]),
+              expression: "#{Digest::MD5.new.hexdigest(a[:expression].to_s)}_#{Digest::MD5.new.hexdigest(a[:data_type].to_s)}" || ''
+            }
+          end
+        }
+      end
+      
+      #! GENERATOR SUPPORTING METHODS
       # parameters to be passed to the aws_glue_database_module
       # method of a terraform builder.
       # @param [Hash] structure
@@ -186,18 +328,9 @@ module ConvergDB
       # creates necessary files and folders for use with terraform
       # @param [String] working_path working path for this run
       def create_static_artifacts!(working_path)
-        unless Dir.exist?("#{working_path}/terraform/modules")
-          FileUtils.mkdir_p("#{working_path}/terraform/modules")
-        end
-
         unless Dir.exist?("#{working_path}/terraform/cloudformation")
           FileUtils.mkdir_p("#{working_path}/terraform/cloudformation")
         end
-
-        FileUtils.cp_r(
-          "#{File.dirname(__FILE__)}/modules/",
-          "#{working_path}/terraform/"
-        )
       end
 
       # extracts "table name" from a qualified relation name
@@ -263,28 +396,6 @@ module ConvergDB
       # @return [String]
       def athena_database_name(structure)
         structure[:full_relation_name].split('.')[0..2].join('__')
-      end
-
-      # extracts important elements from the structure in order to create a
-      # hash that can be compared to what exists in AWS (if anything).
-      # @param [Hash] structure
-      # @return [Hash]
-      def comparable(structure)
-        {
-          full_relation_name: structure[:full_relation_name] || '',
-          dsd: structure[:dsd] || '',
-          storage_bucket: structure[:storage_bucket] || '',
-          state_bucket: structure[:state_bucket] || '',
-          storage_format: structure[:storage_format] || '',
-          etl_job_name: structure[:etl_job_name] || '',
-          attributes: structure[:attributes].select{ |x| !structure[:partitions].include?(x[:name]) }.map do |a|
-            {
-              name: a[:name],
-              data_type: athena_data_type(a[:data_type]),
-              expression: Digest::MD5.new.hexdigest(a[:expression].to_s) || ''
-            }
-          end
-        }
       end
 
       # hadoop output format for use in table definition.
@@ -386,7 +497,7 @@ module ConvergDB
                     {
                       'Name' => a[:name],
                       'Type' => athena_data_type(a[:data_type]),
-                      'Comment' => Digest::MD5.new.hexdigest(a[:expression]) || ''
+                      'Comment' => "#{Digest::MD5.new.hexdigest(a[:expression].to_s)}_#{Digest::MD5.new.hexdigest(a[:data_type].to_s)}" || ''
                     }
                   end,
                   'Compressed' => false
@@ -395,7 +506,7 @@ module ConvergDB
                     {
                       'Name' => a[:name],
                       'Type' => athena_data_type(a[:data_type]),
-                      'Comment' => Digest::MD5.new.hexdigest(a[:expression].to_s) || ''
+                      'Comment' => "#{Digest::MD5.new.hexdigest(a[:expression].to_s)}_#{Digest::MD5.new.hexdigest(a[:data_type].to_s)}" || ''
                     }
                   end,
                 'Name' => table_name(structure[:full_relation_name]),

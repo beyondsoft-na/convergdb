@@ -22,7 +22,13 @@
         "inventory_table": "",
         "streaming_inventory": "false",
         "streaming_inventory_output_bucket": null,
-        "streaming_inventory_table": null
+        "streaming_inventory_table": null,
+        "csv_header": null,
+        "csv_separator": null,
+        "csv_quote": null,
+        "csv_null": null,
+        "csv_escape": null,
+        "csv_trim": null
       }
     ]
   },
@@ -38,11 +44,15 @@
     "etl_job_name": "nightly_batch",
     "etl_job_schedule": "cron(0 0 * * ? *)",
     "etl_job_dpu" : 20,
+    "etl_technology" : "aws_glue",
+    "etl_docker_image" : null,
+    "etl_docker_image_digest" : null,
     "relations": [
       {
         "generators": [
           "athena",
           "glue",
+          "fargate",
           "markdown_doc",
           "html_doc",
           "control_table"
@@ -64,7 +74,10 @@
         "use_inventory": "false",
         "etl_job_name": "nightly_batch",
         "etl_job_schedule": "cron(0 0 * * ? *)",
-        "etl_job_dpu" : 20
+        "etl_job_dpu" : 20,
+        "etl_technology" : "aws_glue",
+        "etl_docker_image" : null,
+        "etl_docker_image_digest" : null
       }
     ]
   }

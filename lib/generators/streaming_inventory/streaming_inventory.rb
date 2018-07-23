@@ -60,15 +60,6 @@ module ConvergDB
       # @param [String] working_path working path for this run
       def create_static_artifacts!(working_path)
         super(working_path)
-
-        unless Dir.exist?("#{working_path}/terraform/modules")
-          FileUtils.mkdir_p("#{working_path}/terraform/modules")
-        end
-
-        FileUtils.cp_r(
-          "#{File.dirname(__FILE__)}/modules/",
-          "#{working_path}/terraform/"
-        )
       end
       
       # @return [String]
@@ -156,7 +147,7 @@ module ConvergDB
       end
 
       # extracts "table name" from the source storage_bucket
-      # @param [String] relation_name
+      # @param [String] storage_bucket
       # @return [String]
       def table_name(storage_bucket)
         @terraform_builder.to_underscore(storage_bucket)
@@ -278,7 +269,6 @@ module ConvergDB
 
       # creates a database resource for use inside a cloudformation template.
       # see the AWS documentation for the Glue API for more info.
-      # @param [Hash] structure
       # @return [Hash]
       def cfn_database_resource(*)
         {

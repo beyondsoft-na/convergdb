@@ -11,5 +11,8 @@ gem "rake", '>=10.4.2'
 gem "rainbow", '~> 3.0'
 gem "hashdiff", '~> 0.3.7'
 gem "aws-sdk-glue", '~> 1'
+gem "aws-sdk-lambda", '~> 1'
+gem "aws-sdk-ecs", '~> 1'
 gem "aws-sdk-s3", '~> 1'
+gem "aws-sdk-cloudwatchevents", '~> 1'
 gem "simplecov", :require => false

@@ -45,6 +45,14 @@ order to build the deployment artifacts:
   def license()
     ConvergDB::Interactions::Licenses.new
   end
+  
+  desc "version", "version and related info"
+  def version()
+    puts "version: #{ConvergDB::VERSION}"
+    puts "github terraform module commit ref: #{ConvergDB::TERRAFORM_MODULES_COMMIT_ID}"
+    puts "dockerhub image name  : #{ConvergDB::DOCKERHUB_IMAGE_NAME}"
+    puts "dockerhub image digest: #{ConvergDB::DOCKERHUB_IMAGE_SHA256}"
+  end
 end
 
 CLI.start(ARGV)

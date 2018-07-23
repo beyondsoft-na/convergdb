@@ -20,7 +20,12 @@ require 'hashdiff'
 require 'rainbow'
 require 'securerandom'
 
+require 'aws-sdk-cloudwatchevents'
+require 'aws-sdk-ecs'
+require 'aws-sdk-glue'
+
 require_relative '../deployment/terraform/terraform.rb'
+require_relative '../exceptions.rb'
 
 module ConvergDB
   module Generators
@@ -35,11 +40,16 @@ module ConvergDB
       # @return [ConvergDB::Deployment::TerraformBuilder]
       attr_accessor :terraform_builder
 
+      # @return [Hash]
+      attr_accessor :aws_clients
+
       # @param [Hash] structure primary_ir structure
       # @param [ConvergDB::Deployment::TerraformBuilder] terraform_builder
-      def initialize(structure, terraform_builder)
+      # @param [Hash] aws_clients aws connections for use in generator
+      def initialize(structure, terraform_builder, aws_clients)
         @structure = structure
         @terraform_builder = terraform_builder
+        @aws_clients = aws_clients
         post_initialize
       end
 
@@ -72,6 +82,61 @@ module ConvergDB
           mode
         )
       end
+
+      # proceses a single element from a HashDiff output and returns
+      # a rainbow colored string if it is a + or -... otherwise returns
+      # nothing
+      # @param [Array] diff
+      # @return [Rainbow]
+      def diff_item_coloring(diff)
+        case diff[0]
+        when '-' then
+          Rainbow("  #{diff[0]} #{diff[1]} = #{diff[2]}").red + "\n"
+        when '+' then
+          Rainbow("  #{diff[0]} #{diff[1]} = #{diff[2]}").green + "\n"
+        when '~' then
+          Rainbow("  #{diff[0]} #{diff[1]} from '#{diff[2]}' to '#{diff[3]}'").yellow + "\n"
+        end
+      end
+      
+      # outputs diff information.
+      # @param [String] header
+      # @param [Array<String>] diff
+      def output_diff(header, diff)
+        puts(
+          Rainbow(
+            header
+          ).bright
+        )
+        if diff.length == 0
+          puts("  no change")
+        else
+          diff.each do |d|
+            puts(d)
+          end
+        end
+        puts('')
+      end
+
+      # replaces convergdb bootstrap bucket references with
+      # variable name to allow comparison to primary_ir.
+      # @param [String] input
+      # @return [String]
+      def convergdb_bucket_reference(input, deployment_id)
+        return input unless input.class == String
+        admin_bucket = /^convergdb\-admin\-[0-9a-f]{16}/
+        data_bucket  = /^convergdb\-data\-[0-9a-f]{16}/
+        input.gsub(
+          admin_bucket,
+          '${admin_bucket}'
+        ).gsub(
+          data_bucket,
+          '${data_bucket}'
+        ).gsub(
+          deployment_id.to_s,
+          '${deployment_id}'
+        )
+      end
     end
 
     # maps symbol to generator class
@@ -84,13 +149,16 @@ module ConvergDB
         markdown_doc: MarkdownDoc,
         html_doc: HtmlDoc,
         control_table: AWSAthenaControlTableGenerator,
-        streaming_inventory: StreamingInventoryTableGenerator
+        streaming_inventory: StreamingInventoryTableGenerator,
+        fargate: AWSFargate
       }
     end
 
     # uses fully resolved IR to generate
     # artifacts using the various generators.
     class MasterGenerator
+      include ConvergDB::ErrorHandling
+
       # fully resolved dsd_ddd_ir
       attr_accessor :structure
 
@@ -105,6 +173,16 @@ module ConvergDB
         @structure = structure
         @generators = []
         @terraform_builder = ConvergDB::Deployment::TerraformBuilder.new
+        @aws_clients ||= aws_clients
+      end
+
+      # @return [Hash]
+      def aws_clients
+        {
+          aws_glue: Aws::Glue::Client.new,
+          aws_ecs: Aws::ECS::Client.new,
+          aws_cloudwatch_events: Aws::CloudWatchEvents::Client.new
+        }
       end
 
       # returns an array of generator objects by iterating through all the
@@ -122,10 +200,10 @@ module ConvergDB
             # creating new instance of generator_class... initializing
             # it with the hash from the primary IR as well as the current
             # terraform builder
-            d = structure[k]
             g << generator_class.new(
-              d,
-              @terraform_builder
+              structure[k],
+              @terraform_builder,
+              @aws_clients
             )
           end
         end
@@ -141,11 +219,6 @@ module ConvergDB
 
         # creates the generator array from the primary IR
         @generators = create_generators(@structure)
-
-        apply_existing_athena_relations!(
-          @generators,
-          ConvergDB::LiveState::IR.new.comparable_athena_relations
-        )
 
         output_diff_messages(@generators)
 
@@ -165,6 +238,9 @@ module ConvergDB
         f.close
       end
 
+      # outputs high level diff messages for tables and ETL jobs
+      # created by convergdb.
+      # @param [Array<BaseGenerator>] generators
       def output_diff_messages(generators)
         # output information about glue etl job diffs
         output_glue_etl_job_diff_message(generators)
@@ -208,10 +284,12 @@ module ConvergDB
         create_bootstrap_artifacts!(working_path)
 
         # etl job files are rebuilt each time so old ones are deleted
-        if Dir.exist?("#{terraform_directory_path(working_path)}/aws_glue")
-          glue_py = "#{terraform_directory_path(working_path)}/aws_glue/*.py"
-          Dir.glob(glue_py).each do |f|
-            File.delete(f)
+        ['aws_glue', 'aws_fargate'].each do |etl|
+          if Dir.exist?("#{terraform_directory_path(working_path)}/#{etl}")
+            glue_py = "#{terraform_directory_path(working_path)}/#{etl}/*.py"
+            Dir.glob(glue_py).each do |f|
+              File.delete(f)
+            end
           end
         end
 
@@ -241,6 +319,7 @@ module ConvergDB
           admin_bucket = "convergdb-admin-#{suffix}"
           data_bucket = "convergdb-data-#{suffix}"
           lock_table = "convergdb-lock-#{suffix}"
+          etl_lock_table = "convergdb-etl-lock-#{suffix}"
           deployment_id = "#{suffix}"
 
           # Write terraform backend bootstrap deployment to separate directory
@@ -265,122 +344,106 @@ module ConvergDB
       # to summarize the relation diff between AWS and the current config.
       # @param [Array<BaseGenerator>] generators
       def output_athena_relation_diff_message(generators)
-        c = ConvergDB::LiveState::IR.new
+        log_warning('unable to create diff analysis for tables') do
+          live = ConvergDB::LiveState::IR.new.all_tables
+          this_deployment = []
+          live.each do |t|
+            if (t[:this_deployment] == true)
+              if (!t[:name].match(/^convergdb\_control/))
+                this_deployment << t[:name]
+              end
+            end
+          end
+          local = current_deployment_athena_relations(generators)
 
-        print(
-          relation_diff_message(
-            c.comparable_athena_relations.keys,
-            current_deployment_athena_relations(
-              generators
-            )
-          ).join("\n")
-        )
+          removed_tables = (this_deployment - local)
+          if removed_tables.length > 0
+            puts Rainbow("Tables being removed:").bright.red
+            removed_tables.each do |removed|
+              puts(Rainbow("  #{removed}").red)
+            end
+            puts
+          end
+
+          added_tables = local - live.map { |t| t[:name] }
+          if added_tables.length > 0
+            puts Rainbow("Tables being added:").bright.green
+            added_tables.each do |added|
+              puts(Rainbow("  #{added}").green)
+            end
+            puts
+          end
+        end
       end
 
       # returns an array of generator objects with current_state attached.
       # @param [Array<BaseGenerator>] generators
       # @return [Array<String>]
       def current_deployment_athena_relations(generators)
-        a = generators.select { |g| g.class == ConvergDB::Generators::AWSAthena }
-        a.map { |g| g.structure[:full_relation_name] }
+        a = generators.select do |g|
+          g.class == ConvergDB::Generators::AWSAthena
+        end
+        a.map do |g|
+          splitted = g.structure[:full_relation_name].split('.')
+          "#{splitted[0..2].join('__')}.#{splitted[3]}"
+        end
       end
 
-      # returns an array of generator objects with current_state attached.
-      # @param [Array<BaseGenerator>] generators
-      # @param [Hash] comparable_relations
-      def apply_existing_athena_relations!(generators, comparable_relations)
+     # @param [Array<BaseGenerator>] generators
+     # @return [Array<String>]
+      def current_deployment_etl_jobs(generators)
+        etl_jobs = []
         generators.each do |g|
-          if g.class == ConvergDB::Generators::AWSAthena
-            if comparable_relations[g.structure[:full_relation_name]]
-              g.current_state = comparable_relations[
-                g.structure[:full_relation_name]
-              ]
-            else
-              g.current_state = {}
-            end
+          case
+            when [
+              ConvergDB::Generators::AWSGlue,
+              ConvergDB::Generators::AWSFargate
+            ].include?(g.class)
+            then etl_jobs << {
+              name: g.structure[:etl_job_name],
+              technology: g.structure[:etl_technology]
+            }
           end
         end
-      end
-
-      # diffs two arrays of :full_relation_name.
-      # this method returns an array of strings and Rainbow objects.
-      # @param [Array<String>] athena
-      # @param [Array<String>] current
-      # @return [Array] stringlike objects for multiline output
-      def relation_diff_message(athena, current)
-        ret = []
-        ret << Rainbow("ConvergDB relations in Athena:").bright
-        athena.sort.each do |k|
-          ret << "  #{k}"
-        end
-        ret << ''
-        ret << Rainbow("Relations in current configuration:").bright
-        current.sort.each do |k|
-          ret << "  #{k}"
-        end
-        ret << ''
-        removed = athena - current
-        unless removed == []
-          ret << Rainbow("Relations being removed:").bright.red
-          removed.sort.each do |r|
-            ret << Rainbow("  #{r}").red
-          end
-          ret << ''
-        end
-        ret << ''
-        ret
+        etl_jobs.uniq
       end
 
       # outputs a message indicating the difference between the current state
       # and glue jobs in the current configuration.
       # @param [Array<BaseGenerator>] generators
       def output_glue_etl_job_diff_message(generators)
-        print(
-          glue_etl_job_diff_message(
-            generators,
-            ConvergDB::LiveState::IR.new.comparable_glue_etl_jobs.map { |j| j[:name] }
-          ).join("\n")
-        )
-      end
+        live = ConvergDB::LiveState::IR.new.all_etl_jobs
+        local = current_deployment_etl_jobs(generators)
+        local_names = local.map { |l| l[:name] }
 
-      # diffs two arrays of :full_relation_name.
-      # this method is purely informational.
-      # @param [Array<ConvergDB::Generators::BaseGenerator>] generators
-      # @param [Array] comparable_jobs
-      # @return [Array] stringlike objects for multiline output
-      def glue_etl_job_diff_message(generators, comparable_jobs)
-        current = []
-        ret = []
-        generators.each do |ir|
-          if ir.class == ConvergDB::Generators::AWSGlue
-            unless current.include?(ir.structure[:etl_job_name])
-              current << ir.structure[:etl_job_name]
-            end
+        live_this_deployment = []
+        live.each do |job|
+          live_this_deployment << job[:name] if job[:this_deployment]
+        end
+
+        # check for duplicate ETL job technologies
+
+        # ETL jobs added
+        added_jobs = local_names - live_this_deployment
+        if added_jobs.length > 0
+          puts Rainbow('ETL Jobs Added').bright.green
+          added_jobs.each do |j|
+            puts Rainbow("  #{j}").green
           end
+          puts
         end
 
-        ret << Rainbow("ConvergDB ETL jobs in Glue:").bright
-        comparable_jobs.sort.each do |k|
-          ret << "  #{k}"
-        end
-        ret << ''
-
-        ret << Rainbow("ETL jobs in current configuration:").bright
-        current.sort.each do |k|
-          ret << "  #{k}"
-        end
-        ret << ''
-
-        removed = comparable_jobs - current
-        unless removed == []
-          ret << Rainbow("ETL jobs being removed:").bright.red
-          removed.sort.each do |r|
-            ret << Rainbow("  #{r}").red
+        # ETL jobs removed
+        removed_jobs = live_this_deployment - local_names
+        if removed_jobs.length > 0
+          puts Rainbow('ETL Jobs Removed').bright.red
+          removed_jobs.each do |j|
+            puts Rainbow("  #{j}").red
           end
-          ret << ''
+          puts
         end
-        ret << ''
-        ret
+
+        # ETL jobs technology changed
       end
     end
   end
@@ -395,3 +458,4 @@ require_relative 'markdown_doc/markdown_doc.rb'
 require_relative 'html_doc/html_doc.rb'
 require_relative 'control_table/control_table.rb'
 require_relative 'streaming_inventory/streaming_inventory.rb'
+require_relative 'fargate/fargate.rb'

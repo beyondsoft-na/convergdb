@@ -253,6 +253,7 @@ module ConvergDB
           {:generators=>[
               "athena", 
               "glue", 
+              "fargate",
               "markdown_doc", 
               "html_doc", 
               "control_table"
@@ -272,7 +273,10 @@ module ConvergDB
            :source_relation_prefix=>nil,
            :etl_job_name=>"nightly_batch",
            :etl_job_schedule=>"cron(0 0 * * ? *)",
-           :etl_job_dpu=>2}}
+           :etl_job_dpu=>2,
+           :etl_technology=>'aws_glue',
+           :etl_docker_image=>nil,
+           :etl_docker_image_digest=>nil}}
 
         assert_equal(
           expected,

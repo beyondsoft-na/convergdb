@@ -1,5 +1,17 @@
 ## Changelog
 
+### 0.0.6.7 2018-05-21
+
+* moved terraform modules to external repo
+* `aws_fargate` option for `etl_technology`
+* fargate integration bootstrap changes
+* refactored bootstrap
+* relative paths in terraform deployment to support devops pipeline
+* rebuilt diff to AWS functionality
+* added support for CSV files
+* revamped pyspark schema handling for nested JSON objects
+* added version command
+
 ### 0.0.6.6 2018-05-13
 
 * added check for "canonical" dsd name in primary representation

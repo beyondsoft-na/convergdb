@@ -20,7 +20,8 @@ module ConvergDB
       def athena_control_table_generator
         AWSAthenaControlTableGenerator.new(
           TestIR.dsd_ddd_test_02,
-          ConvergDB::Deployment::TerraformBuilder.new
+          ConvergDB::Deployment::TerraformBuilder.new,
+          nil
         )
       end
 

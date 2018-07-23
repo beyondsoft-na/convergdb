@@ -35,7 +35,7 @@ module ConvergDB
       end
 
       production(:deploy) do
-        clause('IDENT IDENT LBRACE deploy_bodies RBRACE ') do
+        clause('RIDENT IDENT LBRACE deploy_bodies RBRACE') do
           |e0, e1, _, deploy_bodies, _|
           TwoExp.new(
             Variable.new([:new_deployment, e0.to_sym, e1[1..e1.length - 2]]),
@@ -54,8 +54,11 @@ module ConvergDB
       end
 
       production(:deploy_body) do
-        clause('IDENT EQUAL IDENT') do |e0, _, e1|
+        clause('RIDENT EQUAL IDENT') do |e0, _, e1|
           Variable.new([:deployment, e0.to_sym, e1[1..e1.length - 2]])
+        end
+        clause('RIDENT EQUAL RIDENT') do |e0, _, e1|
+          Variable.new([:deployment, e0.to_sym, e1])
         end
         clause('RELATIONS LBRACE relations_body RBRACE') do
           |_, _, relations_body, _|
@@ -87,12 +90,14 @@ module ConvergDB
           |relation_body, relation_bodies|
           TwoExp.new(relation_body, relation_bodies)
         end
-        #clause('') { || nil }
       end
 
       production(:relation_body) do
-        clause('IDENT EQUAL IDENT') do |e0, _, e1|
+        clause('RIDENT EQUAL IDENT') do |e0, _, e1|
           Variable.new([:relation, e0.to_sym, e1[1..e1.length - 2]])
+        end
+        clause('RIDENT EQUAL RIDENT') do |e0, _, e1|
+          Variable.new([:relation, e0.to_sym, e1])
         end
       end
     finalize

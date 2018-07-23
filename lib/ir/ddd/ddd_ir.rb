@@ -165,7 +165,15 @@ module ConvergDB
       attr_accessor :streaming_inventory_output_bucket
 
       attr_accessor :streaming_inventory_table
-
+      
+      # csv parameters
+      attr_accessor :csv_header
+      attr_accessor :csv_separator
+      attr_accessor :csv_quote
+      attr_accessor :csv_null 
+      attr_accessor :csv_escape
+      attr_accessor :csv_trim
+    
       # @param [Object] parent
       def initialize(parent)
         @parent = parent
@@ -190,7 +198,13 @@ module ConvergDB
           inventory_table: @inventory_table,
           streaming_inventory: @streaming_inventory,
           streaming_inventory_output_bucket: @streaming_inventory_output_bucket,
-          streaming_inventory_table: @streaming_inventory_table
+          streaming_inventory_table: @streaming_inventory_table,
+          csv_header: @csv_header,
+          csv_separator: @csv_separator,
+          csv_quote: @csv_quote,
+          csv_null: @csv_null,
+          csv_escape: @csv_escape,
+          csv_trim: @csv_trim
         }
       end
 
@@ -204,6 +218,7 @@ module ConvergDB
         @full_relation_name = resolve_full_relation_name
         @inventory_table ||= ''
         @streaming_inventory ||= 'false'
+        
         unless @streaming_inventory_output_bucket
           if @streaming_inventory != 'false'
             if @storage_bucket.class == String
@@ -217,6 +232,7 @@ module ConvergDB
             end
           end
         end
+        
         unless @streaming_inventory_table
           if @streaming_inventory == 'true'
             if @storage_bucket
@@ -226,6 +242,35 @@ module ConvergDB
             else
               raise "issue"
             end
+          end
+        end
+        
+        resolve_csv_parameters!
+      end
+      
+      def csv_params
+        [
+          @csv_header,
+          @csv_separator,
+          @csv_quote,
+          @csv_null,
+          @csv_escape,
+          @csv_trim
+        ]
+      end
+      
+      def resolve_csv_parameters!
+        if @storage_format == 'csv'
+          puts("resolving csv parameters")
+          @csv_header ||= 'false'
+          @csv_trim ||= 'false'
+          @csv_separator = @csv_separator ? csv_param(@csv_separator) : ','.ord
+          @csv_quote = @csv_quote ? csv_param(@csv_quote) : '"'.ord
+          @csv_null = @csv_null ? csv_param(@csv_null) : 0
+          @csv_escape = @csv_escape ? csv_param(@csv_escape) : csv_param(':backslash')
+        else
+          if csv_params.select { |a| a != nil }.length > 0
+            raise "csv parameters can only be applied for storage_format = csv"
           end
         end
       end
@@ -277,8 +322,14 @@ module ConvergDB
             mandatory: false
           },
           storage_bucket: { regex: /.*/, mandatory: true },
-          storage_format: { regex: /json/, mandatory: false },
+          storage_format: { regex: /(json|csv)/, mandatory: false },
           streaming_inventory: { regex: /^(true|false)$/i, mandatory: false }
+#          csv_header: { regex: /^(true|false)$/i, mandatory: false },
+#          csv_separator: { regex: /^(\d{1,3}|u\d{4})$/i, mandatory: false },
+#          csv_quote: { regex: /^(\d{1,3}|u\d{4})$/i, mandatory: false },
+#          csv_null: { regex: /^(\d{1,3}|u\d{4})$/i, mandatory: false },
+#          csv_escape: { regex: /^(\d{1,3}|u\d{4})$/i, mandatory: false },
+#          csv_trim: { regex: /^(true|false)$/i, mandatory: false }
         }
       end
 
@@ -286,6 +337,42 @@ module ConvergDB
       def validate
         validate_string_attributes
       end
+      
+      # @param [String] value
+      # @return [String|Integer]
+      def csv_param(value)
+        if value.match(/^.{1}$/)
+          # single character ascii value
+          return value.ord
+        elsif value.match(/^\:/)
+          case
+            when value.strip.downcase == ':colon'
+            then return 58
+            when value.match(/^:tab$/)
+            then return 11
+            when value.match(/^:backslash$/)
+            then return 92
+            when value.match(/^:newline$/)
+            then return 10
+            when value.match(/^:quote$/)
+            then return 34
+            # ascii
+            when value.match(/^:\d{1,3}$/)
+            then 
+              ret = value.match(/\d+/)[0].to_i
+              raise "ascii value must be less than 255" if ret > 255
+              return ret
+            # unicode
+            when value.match(/^:u([abcdef]|\d){4}$/i)
+            then return "u#{value.match(/([abcdef]|\d){4}/i)[0]}"
+            # otherwise it's invalid
+            else raise "invalid csv parameter #{value}"
+          end
+        else
+          raise "invalid csv parameter #{value}"
+        end
+      end
+
     end
 
     # represents an AWS athena deployment. :relations array
@@ -331,6 +418,11 @@ module ConvergDB
 
       attr_accessor :etl_job_dpu
 
+      # fargate container handling
+      attr_accessor :etl_technology
+      attr_accessor :etl_docker_image
+      attr_accessor :etl_docker_image_digest
+
       # initialize with reference to parent and current environment.
       # :relations is set to empty array.
       # @param [DDDTopLevel] parent
@@ -359,6 +451,9 @@ module ConvergDB
           etl_job_name: @etl_job_name,
           etl_job_schedule: @etl_job_schedule,
           etl_job_dpu: @etl_job_dpu,
+          etl_technology: @etl_technology,
+          etl_docker_image: @etl_docker_image,
+          etl_docker_image_digest: @etl_docker_image_digest,
           relations: @relations.map(&:structure)
         }
       end
@@ -366,8 +461,18 @@ module ConvergDB
       # resolves all of the attribute values in the downstream
       # relations.
       def resolve!
-        # dpu default
-        @etl_job_dpu = @etl_job_dpu ? @etl_job_dpu.to_i : 2
+        @script_bucket ||= '${var.admin_bucket}'
+        # dpu and image defaults
+        @etl_technology ||= 'aws_glue'
+        if @etl_technology == 'aws_fargate'
+          # if no image is specified... use the dockerhub image
+          unless @etl_docker_image
+            @etl_docker_image = ConvergDB::DOCKERHUB_IMAGE_NAME
+            @etl_docker_image_digest ||= ConvergDB::DOCKERHUB_IMAGE_SHA256
+          end
+        elsif @etl_technology == 'aws_glue'
+          @etl_job_dpu = @etl_job_dpu ? @etl_job_dpu.to_i : 2
+        end
         @relations.map(&:resolve!)
       end
 
@@ -408,6 +513,10 @@ module ConvergDB
           etl_job_schedule: {
             regex: /.*/,
             mandatory: true
+          },
+          etl_technology: {
+            regex: /(aws\_glue|aws\_fargate)/,
+            mandatory: true
           }
         }
       end
@@ -415,9 +524,36 @@ module ConvergDB
       # performs validation on this object... then
       # validates all of the :relation items.
       def validate
-        raise "DPU out of range" unless @etl_job_dpu.between?(2,100)
         validate_string_attributes
+        validate_etl(
+          @etl_technology,
+          @etl_docker_image,
+          @etl_docker_image_digest,
+          @etl_job_dpu
+        )
         @relations.each(&:validate)
+      end
+
+      # validates the etl job related attributes for this object.
+      # @param [String] technology
+      # @param [String] docker_image
+      # @param [String] docker_image_digest
+      # @param [String] job_dpu
+      def validate_etl(technology, docker_image, docker_image_digest, job_dpu)
+        if technology == 'aws_fargate'
+          unless docker_image_digest
+            raise "you must specify an SHA256 digest for the docker image"
+          end
+          raise "DPU does not apply to AWS Fargate based ETL jobs" if job_dpu
+        elsif technology == 'aws_glue'
+          if docker_image
+            raise "image doesn't apply to Glue based ETL jobs"
+          end
+          if docker_image_digest
+            raise "image digest doesn't apply to Glue based ETL jobs"
+          end
+          raise "DPU out of range" unless job_dpu.between?(2,100)
+        end
       end
     end
 
@@ -469,6 +605,10 @@ module ConvergDB
       attr_accessor :etl_job_schedule
       attr_accessor :etl_job_dpu
 
+      # fargate container handling
+      attr_accessor :etl_technology
+      attr_accessor :etl_docker_image
+      attr_accessor :etl_docker_image_digest
 
       # @param [Object] parent
       def initialize(parent)
@@ -479,7 +619,7 @@ module ConvergDB
       # @return [Hash]
       def structure
         {
-          generators: [:athena, :glue, :markdown_doc, :html_doc, :control_table],
+          generators: [:athena, :glue, :fargate, :markdown_doc, :html_doc, :control_table],
           full_relation_name: @full_relation_name,
           dsd: @dsd,
           environment: @environment,
@@ -497,7 +637,10 @@ module ConvergDB
           use_inventory: @use_inventory,
           etl_job_name: @etl_job_name,
           etl_job_schedule: @etl_job_schedule,
-          etl_job_dpu: @etl_job_dpu
+          etl_job_dpu: @etl_job_dpu,
+          etl_technology: @etl_technology,
+          etl_docker_image: @etl_docker_image,
+          etl_docker_image_digest: @etl_docker_image_digest
         }
       end
 
@@ -523,12 +666,12 @@ module ConvergDB
         # no resolve for @relation_name
         @full_relation_name = resolve_full_relation_name
         # @region = override_parent(:region)
-        @service_role = override_parent(:service_role) || ''
+        @service_role = override_parent(:service_role)
         @script_bucket = override_parent(:script_bucket)
         @temp_s3_location = override_parent(:temp_s3_location)
         @storage_format = override_parent(:storage_format)
         @source_relation_prefix = override_parent(:source_relation_prefix)
-        
+
         if @use_inventory
           puts('athena stanza use_inventory attribute is deprecated... please use inventory_source = "s3"')
         end
@@ -557,6 +700,10 @@ module ConvergDB
         @etl_job_name = @parent.etl_job_name
         @etl_job_schedule = @parent.etl_job_schedule
         @etl_job_dpu = @parent.etl_job_dpu
+
+        @etl_technology = @parent.etl_technology
+        @etl_docker_image = @parent.etl_docker_image
+        @etl_docker_image_digest = @parent.etl_docker_image_digest
       end
 
       # full_relation_name is created by overriding the attributes

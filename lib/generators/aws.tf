@@ -8,10 +8,6 @@ resource "aws_sns_topic" "convergdb-notifications" {
   name = "convergdb-${var.deployment_id}"
 }
 
-# variable "cloudwatch_namespace" {
-#   default = "convergdb/${var.deployment_id}"
-# }
-
 resource "aws_cloudwatch_dashboard" "dashboard" {
   provider       = "aws"
   dashboard_name = "convergdb-${var.deployment_id}"

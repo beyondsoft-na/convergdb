@@ -228,7 +228,6 @@ module ConvergDB
 
       # creates a database resource for use inside a cloudformation template.
       # see the AWS documentation for the Glue API for more info.
-      # @param [Hash] structure
       # @return [Hash]
       def cfn_database_resource(*)
         {

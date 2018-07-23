@@ -25,10 +25,10 @@ convergdb.source_to_target(
   "source_relation_prefix": null,
   "etl_job_name": "nightly_batch",
   "etl_job_schedule": "cron(0 0 * * ? *)",
-  "etl_job_dpu": 2,
-  "etl_technology": "aws_glue",
-  "etl_docker_image": null,
-  "etl_docker_image_digest": null,
+  "etl_job_dpu": null,
+  "etl_technology": "aws_fargate",
+  "etl_docker_image": "beyondsoftna/convergdb",
+  "etl_docker_image_digest": "abc123",
   "attributes": [
     {
       "name": "item_number",

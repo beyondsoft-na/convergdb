@@ -13,10 +13,13 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 require 'erb'
 require 'json'
 require 'digest'
 require 'fileutils'
+
+require_relative './../../version.rb'
 
 module ConvergDB
   # generators to create deployable artifacts
@@ -132,14 +135,17 @@ module ConvergDB
       attr_accessor :stack
       attr_accessor :stack_name
       attr_accessor :local_stack_file_path
-
+      attr_accessor :local_stack_file_relative_path
+      
       # @param [Hash] params
       def initialize(params)
         @resource_id = to_underscore(params[:resource_id])
         @region = params[:region]
-        @source = './modules/aws_athena_relations'
+        @source = ConvergDB::TERRAFORM_MODULES[:aws_athena_relations]
         @local_stack_file_path =
           "#{params[:working_path]}/terraform/cloudformation/#{params[:resource_id]}.json"
+        @local_stack_file_relative_path =
+          "./cloudformation/#{params[:resource_id]}.json"
         @stack = initialize_stack
         @stack_name = params[:resource_id]
       end
@@ -198,7 +204,7 @@ module ConvergDB
                 region: @region,
                 stack_name: @stack_name,
                 deployment_id: %(${var.deployment_id}),
-                local_stack_file_path: @local_stack_file_path,
+                local_stack_file_path: @local_stack_file_relative_path,
                 s3_stack_key: %{${var.deployment_id}/cloudformation/#{@stack_name}_${var.deployment_id}.json},
                 admin_bucket: %{${var.admin_bucket}}, # to pass downstream into the module
                 data_bucket: %{${var.data_bucket}},    # to pass downstream into the module
@@ -222,7 +228,7 @@ module ConvergDB
       def initialize(params)
         @resource_id = to_underscore(params[:resource_id])
         @region = params[:region]
-        @source = './modules/aws_athena_database'
+        @source = ConvergDB::TERRAFORM_MODULES[:aws_athena_database]
         @stack = initialize_stack
       end
 
@@ -286,7 +292,7 @@ module ConvergDB
       def initialize(params)
         @resource_id = params[:resource_id]
         @region = params[:region]
-        @source = './modules/aws_glue_etl_job'
+        @source = ConvergDB::TERRAFORM_MODULES[:aws_glue_etl_job]
         @job_name = params[:job_name]
         @local_script = params[:local_script]
         @local_pyspark_library = params[:local_pyspark_library]
@@ -295,7 +301,7 @@ module ConvergDB
         @pyspark_library_key = params[:pyspark_library_key]
         @schedule = params[:schedule]
         @stack_name = params[:stack_name]
-        @service_role = params[:service_role] || ''
+        @service_role = params[:service_role]
         @dpu = params[:dpu]
       end
 
@@ -330,7 +336,8 @@ module ConvergDB
                 data_bucket: "${var.data_bucket}",
                 dpu: @dpu,
                 cloudwatch_namespace: "convergdb/${var.deployment_id}",
-                sns_topic: "${aws_sns_topic.convergdb-notifications.arn}"
+                sns_topic: "${aws_sns_topic.convergdb-notifications.arn}",
+                etl_lock_table: "${var.etl_lock_table}"
               }
             }
           }
@@ -338,7 +345,80 @@ module ConvergDB
       end
     end
 
-    # creates a glue etl job
+    # creates a fargate based etl job
+    class AWSFargateETLJobModule < BaseTerraform
+      attr_accessor :region
+      attr_accessor :etl_job_name
+      attr_accessor :etl_job_schedule
+      attr_accessor :local_script
+      attr_accessor :local_pyspark_library
+      attr_accessor :script_bucket
+      attr_accessor :script_key
+      attr_accessor :pyspark_library_key
+      attr_accessor :lambda_trigger_key
+      attr_accessor :docker_image
+      attr_accessor :docker_image_digest
+
+      # @param [Hash] params
+      def initialize(params)
+        @resource_id = params[:resource_id]
+        @region = params[:region]
+        @etl_job_name = params[:etl_job_name]
+        @etl_job_schedule = params[:etl_job_schedule]
+        @local_script = params[:local_script]
+        @local_pyspark_library = params[:local_pyspark_library]
+        @script_bucket = params[:script_bucket]
+        @script_key = params[:script_key]
+        @pyspark_library_key = params[:pyspark_library_key]
+        @lambda_trigger_key = params[:lambda_trigger_key]
+        @docker_image = params[:docker_image]
+        @docker_image_digest = params[:docker_image_digest]
+      end
+
+      # @return [Hash]
+      def validation_regex
+        {
+          resource_id: { regex: /.*/, mandatory: true }
+        }
+      end
+
+      # @return [Hash]
+      def structure
+        {
+          resource_id: @resource_id,
+          resource_type: :aws_fargate_etl_job_module,
+          structure: {
+            module: {
+              @resource_id => {
+                source: ConvergDB::TERRAFORM_MODULES[:aws_fargate_etl_job],
+                region: @region,
+                deployment_id: '${var.deployment_id}',
+                etl_job_name: @etl_job_name,
+                etl_job_schedule: @etl_job_schedule,
+                local_script: @local_script,
+                local_pyspark_library: @local_pyspark_library,
+                script_bucket: @script_bucket,
+                script_key: @script_key,
+                pyspark_library_key: @pyspark_library_key,
+                lambda_trigger_key: @lambda_trigger_key,
+                admin_bucket: "${var.admin_bucket}",
+                data_bucket: "${var.data_bucket}",
+                cloudwatch_namespace: 'convergdb/${var.deployment_id}',
+                sns_topic: '${aws_sns_topic.convergdb-notifications.arn}',
+                ecs_subnet: '${var.fargate_subnet}',
+                ecs_cluster: '${var.fargate_cluster}', 
+                ecs_log_group: '${var.ecs_log_group}',
+                docker_image: "#{@docker_image}@#{@docker_image_digest}",
+                execution_task_role: '${var.ecs_execution_role}',
+                etl_lock_table: "${var.etl_lock_table}"
+              }
+            }
+          }
+        }
+      end
+    end
+    
+    # creates a streaming inventory system for source s3 buckets
     class StreamingInventoryModule < BaseTerraform
       attr_accessor :region
       attr_accessor :source
@@ -352,7 +432,7 @@ module ConvergDB
       def initialize(params)
         @resource_id = params[:resource_id]
         @region = params[:region] ? params[:region] : "${var.region}"
-        @source = './modules/streaming_inventory'
+        @source = ConvergDB::TERRAFORM_MODULES[:aws_s3_streaming_inventory]
         @source_bucket = params[:storage_bucket].split('/')[0]
         @firehose_stream_name = inventory_stream_name(@source_bucket)
         @destination_bucket = params[
@@ -476,6 +556,16 @@ module ConvergDB
       def aws_glue_etl_job_module!(params)
         unless resource_id_exists?(to_underscore(params[:resource_id]))
           g = AWSGlueETLJobModule.new(params)
+          @resources << g
+        end
+      end
+
+      # appends a AWSFargateETLJobModule to the resources array.
+      # will not append an object if the resource_id already exists
+      # @param [Hash] params
+      def aws_fargate_etl_job_module!(params)
+        unless resource_id_exists?(to_underscore(params[:resource_id]))
+          g = AWSFargateETLJobModule.new(params)
           @resources << g
         end
       end

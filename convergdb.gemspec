@@ -30,7 +30,10 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency "rainbow", '~> 3.0'
   s.add_runtime_dependency "hashdiff", '~> 0.3.7'
   s.add_runtime_dependency "aws-sdk-glue", '~> 1'
+  s.add_runtime_dependency "aws-sdk-ecs", '~> 1'
+  s.add_runtime_dependency "aws-sdk-lambda", '~> 1'
   s.add_runtime_dependency "aws-sdk-s3", '~> 1'
+  s.add_runtime_dependency "aws-sdk-cloudwatchevents", '~> 1'
   s.add_development_dependency "simplecov", '~> 0.15.1'
   
   s.required_ruby_version = '~> 2.2'

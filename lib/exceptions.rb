@@ -43,6 +43,7 @@ module ConvergDB
         logger.warn(e.message)
         #logger.error(e.backtrace.join("\n"))
         e.backtrace { |b| logger.warn(b) }
+        return nil
     end
 
     # ignore the error
@@ -50,6 +51,7 @@ module ConvergDB
       begin
         yield
       rescue => e
+        nil
       end
     end
   end

@@ -17,108 +17,33 @@
 require 'erb'
 require 'fileutils'
 require_relative '../generate.rb'
-require_relative '../../exceptions.rb'
-
-require 'pp'
 
 module ConvergDB
   # generators to create deployable artifacts
   module Generators
     # used to generate SQL files for athena deployment
-    class AWSGlue < BaseGenerator
+    class AWSFargate < BaseGenerator
       include ConvergDB::ErrorHandling
       
       # post initialization tasks
       def post_initialize
-        if @structure[:etl_technology] == 'aws_glue'
+        if @structure[:etl_technology] == 'aws_fargate'
           apply_cast_type!(@structure)
           @structure[:deployment_id] = "${deployment_id}"
           @structure[:region] = "${region}"
           @structure[:sns_topic] = "${sns_topic}"
           @structure[:cloudwatch_namespace] = "${cloudwatch_namespace}"
-          
-          # only create a diff if clients are passed to the object
           unless @aws_clients.nil?
             diff = diff_with_aws(
               @aws_clients,
               @structure
             )
             output_diff(
-              "AWS Glue ETL job #{@structure[:etl_job_name]}",
-              diff.map { |i| diff_item_coloring(i) }
+              "AWS Fargate ETL job #{@structure[:etl_job_name]}",
+              diff.map {|i| diff_item_coloring(i) }
             )
           end
         end
-      end
-
-      #! COMPARABLE
-      # @param [Aws::Glue::Client] client
-      # @param [String] job_name
-      # @return [Hash]
-      def glue_job_by_name(client, job_name)
-        ignore_error do
-          client.get_job(
-            {
-              job_name: job_name
-            }
-          ).to_h
-        end
-      end
-
-      # @param [Aws::Glue::Client] client
-      # @param [String] job_name
-      # @return [Hash]
-      def glue_trigger_by_job_name(client, job_name)
-        ignore_error do
-          client.get_trigger(
-            {
-              name: "convergdb-#{job_name}"
-            }
-          ).to_h
-        end
-      end
-      
-      # combines both of the hashes returned form AWS into a single hash.
-      # @param [Hash] get_job_response
-      # @param [Hash] get_trigger_response
-      # @return [Hash]
-      def comparable_glue_structure(get_job_response, get_trigger_response)
-        if get_job_response || get_trigger_response
-          {
-            dpu: get_job_response[:job][:allocated_capacity],
-            etl_job_schedule: get_trigger_response[:trigger][:schedule]
-          }
-        else
-          {}
-        end
-      end
-      
-      # @param [Hash] structure
-      # @return [Hash]
-      def comparable(structure)
-        {
-          dpu: structure[:etl_job_dpu],
-          etl_job_schedule: structure[:etl_job_schedule]
-        }
-      end
-
-      # @param [Hash] aws_clients
-      # @param [Hash] structure
-      # @return [Array]
-      def diff_with_aws(aws_clients, structure)
-        HashDiff.diff(
-          comparable_glue_structure(
-            glue_job_by_name(
-              aws_clients[:aws_glue],
-              structure[:etl_job_name]
-            ),
-            glue_trigger_by_job_name(
-              aws_clients[:aws_glue],
-              structure[:etl_job_name]
-            )
-          ),
-          comparable(structure)
-        )
       end
 
       # provides a mask for the structure that is provided to the template_file
@@ -153,7 +78,7 @@ module ConvergDB
 
       # generates the artifacts but only if glue is required
       def generate!
-        if @structure[:etl_technology] == 'aws_glue'
+        if @structure[:etl_technology] == 'aws_fargate'
           create_static_artifacts!(@structure)
 
           create_etl_script_if_not_exists!(
@@ -165,32 +90,78 @@ module ConvergDB
              pyspark_source_to_target(@structure)
           )
 
-          @terraform_builder.aws_glue_etl_job_module!(
-            glue_etl_job_module_params(@structure)
+          @terraform_builder.aws_fargate_etl_job_module!(
+            fargate_etl_job_module_params(@structure)
           )
         end
       end
-
+      
+      #! DIFF METHODS
+      # @param [Hash] structure
+      # @return [Hash] structure
+      def comparable(structure)
+        {
+          etl_job_schedule: structure[:etl_job_schedule]
+        }
+      end
+      
+      # @param [Aws::CloudWatchEvents::Client] client
+      # @return [Hash]
+      def cloudwatch_event_rules(client)
+        ignore_error do
+          client.list_rules.to_h
+        end
+      end
+      
+      # @param [Hash] rules from list_rules API call
+      # @param [String] etl_job_name for this ETL job
+      # @return [Hash]
+      def etl_schedule_for_this_job(rules, etl_job_name)
+        reg_job_name = etl_job_name.gsub(/\_/, '\_').gsub(/\-/, '\-')
+        regex = /^convergdb\-\w{16}\-#{reg_job_name}\-trigger$/
+        ret = rules[:rules].select { |r| r[:name].match(regex) }[0]
+        if ret.nil?
+          {}
+        else
+          {
+            etl_job_schedule: ret[:schedule_expression]
+          }
+        end
+      end
+      
+      # @param [Hash] aws_clients
+      # @param [Hash] structure
+      # @return [Array]
+      def diff_with_aws(aws_clients, structure)
+        HashDiff.diff(
+          etl_schedule_for_this_job(
+            cloudwatch_event_rules(
+              aws_clients[:aws_cloudwatch_events]
+            ),
+            structure[:etl_job_name]
+          ),
+          comparable(structure)
+        )
+      end
+      
       # creates a hash to be used as input to the aws_glue_etl_job_module!
       # method of the terraform builder.
       # @param [Hash] structure
       # @return [Hash]
-      def glue_etl_job_module_params(structure)
+      def fargate_etl_job_module_params(structure)
         {
-          resource_id: "aws_glue_#{structure[:etl_job_name]}",
+          resource_id: "aws_fargate_#{structure[:etl_job_name]}",
           region: '${var.region}',
-          job_name: structure[:etl_job_name],
+          etl_job_name: structure[:etl_job_name],
+          etl_job_schedule: structure[:etl_job_schedule],
           local_script: etl_job_script_relative_path(structure),
           local_pyspark_library: pyspark_library_relative_path(structure),
           script_bucket: structure[:script_bucket],
           script_key: pyspark_script_key(structure),
           pyspark_library_key: pyspark_library_key(structure),
-          schedule: structure[:etl_job_schedule],
-          dpu: structure[:etl_job_dpu],
-          stack_name: @terraform_builder.to_dash(
-            "convergdb-glue-#{structure[:etl_job_name]}"
-          ) + '-${var.deployment_id}',
-          service_role: structure[:service_role]
+          lambda_trigger_key: pyspark_lambda_trigger_key(structure),
+          docker_image: structure[:etl_docker_image],
+          docker_image_digest: structure[:etl_docker_image_digest]
         }
       end
 
@@ -199,14 +170,7 @@ module ConvergDB
       # be run once.
       # @param [Hash] structure
       def create_static_artifacts!(structure)
-        FileUtils.mkdir_p("#{structure[:working_path]}/terraform")
-
-#        FileUtils.cp_r(
-#          "#{File.dirname(__FILE__)}/modules/",
-#          "#{structure[:working_path]}/terraform/",
-#        )
-
-        FileUtils.mkdir_p("#{structure[:working_path]}/terraform/aws_glue")
+        FileUtils.mkdir_p("#{structure[:working_path]}/terraform/aws_fargate")
 
         lib_path = File.expand_path(
           "#{File.expand_path(File.dirname(__FILE__))}/../"
@@ -220,52 +184,49 @@ module ConvergDB
 
       # @param [Hash] structure
       # @return [String] path used to store aws glue pyspark scripts
-      def tf_glue_path(structure)
-        "#{structure[:working_path]}/terraform/aws_glue"
+      def tf_fargate_path(structure)
+        "#{structure[:working_path]}/terraform/aws_fargate"
       end
 
-      # @return [String] path used inside terraform configuration
-      def tf_glue_relative_path
-        "./aws_glue"
+      # @return [String] path used in terraform configuration
+      def tf_fargate_relative_path
+        './aws_fargate'
       end
-
+      
       # @param [Hash] structure
       # @return [String] path for this etl job pyspark script
       def etl_job_script_path(structure)
-        "#{tf_glue_path(structure)}/#{structure[:etl_job_name]}.py"
+        "#{tf_fargate_path(structure)}/#{structure[:etl_job_name]}.py"
       end
 
       # @param [Hash] structure
       # @return [String] path for this etl job pyspark script
       def etl_job_script_relative_path(structure)
-        "#{tf_glue_relative_path}/#{structure[:etl_job_name]}.py"
+        "#{tf_fargate_relative_path}/#{structure[:etl_job_name]}.py"
       end
-
+      
       # @param [Hash] structure
       # @return [String] path to pyspark library
       def pyspark_library_path(structure)
-        "#{tf_glue_path(structure)}/convergdb.zip"
+        "#{tf_fargate_path(structure)}/convergdb.zip"
       end
 
       # @param [Hash] structure
       # @return [String] path to pyspark library
       def pyspark_library_relative_path(structure)
-        "#{tf_glue_relative_path}/convergdb.zip"
+        "#{tf_fargate_relative_path}/convergdb.zip"
       end
-
+      
+      # script uses local header and assumes /tmp as working dir
+      # inside of the container.
       # @param [String] script_path
       def create_etl_script_if_not_exists!(script_path)
         unless File.exist?(script_path)
           File.open(script_path, 'w') do |f|
-            f.puts("import os")
             f.puts("import sys")
-            f.puts("from awsglue.utils import getResolvedOptions")
-            f.puts("args = getResolvedOptions(sys.argv, ['JOB_NAME', 'convergdb_lock_table','aws_region'])")
-            f.puts("os.environ['AWS_GLUE_REGION'] = args['aws_region']")
-            f.puts("os.environ['LOCK_TABLE'] = args['convergdb_lock_table']")
-            f.puts("os.environ['LOCK_ID']    = args['JOB_NAME']")
+            f.puts("sys.path.insert(0, '/tmp/convergdb.zip')")
             f.puts('import convergdb')
-            f.puts('from convergdb.glue_header import *')
+            f.puts('from convergdb.local_header import *')
             f.puts
           end
         end
@@ -341,7 +302,7 @@ module ConvergDB
       # @param [Hash] structure
       # @return [String]
       def pyspark_s3_key_prefix(structure)
-        %{#{deployment_id}/scripts/aws_glue/#{structure[:etl_job_name]}}
+        %{#{deployment_id}/scripts/aws_fargate/#{structure[:etl_job_name]}}
       end
 
       # s3 "folder" location of the pyspark library
@@ -356,6 +317,13 @@ module ConvergDB
       # @return [String]
       def pyspark_script_key(structure)
         %{#{pyspark_s3_key_prefix(structure)}/#{structure[:etl_job_name]}.py}
+      end
+
+      # s3 key for the python lambda used to trigger the job
+      # @param [Hash] structure
+      # @return [String]
+      def pyspark_lambda_trigger_key(structure)
+        %{#{pyspark_s3_key_prefix(structure)}/#{structure[:etl_job_name]}_trigger_lambda.py}
       end
     end
   end

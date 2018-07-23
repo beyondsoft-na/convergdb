@@ -3,6 +3,7 @@ SimpleCov.start if ENV["COVERAGE"]
 
 require 'minitest'
 require 'minitest/autorun'
+require 'pp'
 
 require_relative '../lib/ir/ddd/ddd_ir.rb'
 
@@ -44,6 +45,17 @@ module ConvergDB
           is_err = true
         end
         is_err
+      end
+
+      def catch_error?
+        begin
+          yield
+          return false
+        rescue => e
+          puts "ERROR ERROR ERROR ERROR"
+          puts e.message
+          return true
+        end
       end
     end
 
@@ -175,12 +187,15 @@ module ConvergDB
               etl_job_name: nil,
               etl_job_schedule: nil,
               etl_job_dpu: nil,
+              etl_technology: nil,
+              etl_docker_image: nil,
+              etl_docker_image_digest: nil,
               relations: []
             }
           ],
           t[:top_level].structure
         )
-        
+
         # dpu should get resolved here
         t[:top_level].resolve!
         assert_equal(
@@ -191,13 +206,16 @@ module ConvergDB
               schema_name: nil,
               # region: nil,
               service_role: nil,
-              script_bucket: nil,
+              script_bucket: '${var.admin_bucket}',
               temp_s3_location: nil,
               storage_format: nil,
               source_relation_prefix: nil,
               etl_job_name: nil,
               etl_job_schedule: nil,
               etl_job_dpu: 2,
+              etl_technology: 'aws_glue',
+              etl_docker_image: nil,
+              etl_docker_image_digest: nil,
               relations: []
             }
           ],
@@ -304,7 +322,10 @@ module ConvergDB
         t[:deployment].etl_job_name = 'nightly_batch'
         t[:deployment].etl_job_schedule = 'cron(0 0 * * ? *)'
         t[:deployment].etl_job_dpu = '22'
-        
+        t[:deployment].etl_technology = 'aws_glue'
+        t[:deployment].etl_docker_image = 'beyondsoftna/convergdb:latest'
+        t[:deployment].etl_docker_image_digest = '@sha25612345678'
+
         assert_equal(
           {
             environment: 'env1',
@@ -318,9 +339,13 @@ module ConvergDB
             etl_job_name: 'nightly_batch',
             etl_job_schedule: 'cron(0 0 * * ? *)',
             etl_job_dpu: '22',
+            etl_technology: 'aws_glue',
+            etl_docker_image: 'beyondsoftna/convergdb:latest',
+            etl_docker_image_digest: '@sha25612345678',
             relations: []
           },
-          t[:deployment].structure
+          t[:deployment].structure,
+          pp(t[:deployment].structure)
         )
       end
 
@@ -351,17 +376,36 @@ module ConvergDB
           raises_error?(t[:deployment], :validate)
         )
 
-        # t[:deployment].region = 'us-west-2'
         t[:deployment].service_role = 'glueService'
         t[:deployment].etl_job_name = 'etl_job'
         t[:deployment].etl_job_schedule = 'cron(0 0 * * ? *)'
         t[:deployment].etl_job_dpu = 33
-        
+        t[:deployment].etl_technology = 'aws_glue'
+
         # setting required attributes fixes validation
         assert_equal(
           false,
           raises_error?(t[:deployment], :validate)
         )
+      end
+
+      def test_validate_etl
+        # validate glue etl
+        t = tree_down_to(:athena, :deployment)
+        params1 = [
+          'aws_glue',
+          nil,
+          nil,
+          2
+        ]
+
+        assert_equal(
+          false,
+          catch_error? do
+            t[:deployment].validate_etl(*params1)
+          end
+        )
+
       end
     end
 
@@ -372,13 +416,13 @@ module ConvergDB
         t[:relation].storage_bucket = 'storage_bucket'
         t[:relation].state_bucket = 'state_bucket'
         t[:relation].storage_format = 'parquet'
-        
+
         # etl_job_name is inherited from the parent deployment
         t[:deployment].etl_job_name = 'nightly_batch'
-        
+
         # make sure everything is ready to go
         t[:relation].resolve!
-        
+
         assert_equal(
           {
             full_relation_name: 'env1.domain.schema.relation',
@@ -425,18 +469,18 @@ module ConvergDB
             t[:relation].full_relation_name
           ]
         )
-        
+
         # resolve actions for inventory
         t = tree_down_to(:athena, :relation)
         t[:deployment].service_role = 'glueService'
         t[:relation].dsd = 'domain.schema.relation'
         t[:top_level].resolve!
-        
+
         assert_equal(
           'default',
           t[:relation].inventory_source
         )
-        
+
         # resolve for when both inventory attributes specified
         # inventory_source takes precedence
         t = tree_down_to(:athena, :relation)
@@ -445,19 +489,19 @@ module ConvergDB
         t[:relation].use_inventory = 'true'
         t[:relation].inventory_source = 'streaming'
         t[:top_level].resolve!
-        
+
         assert_equal(
           'streaming',
           t[:relation].inventory_source
         )
-        
+
         # resolve for when only use_inventory specified
         t = tree_down_to(:athena, :relation)
         t[:deployment].service_role = 'glueService'
         t[:relation].dsd = 'domain.schema.relation'
         t[:relation].use_inventory = 'true'
         t[:top_level].resolve!
-        
+
         assert_equal(
           's3',
           t[:relation].inventory_source
@@ -482,16 +526,17 @@ module ConvergDB
         t[:deployment].etl_job_name = 'etl_job'
         t[:deployment].etl_job_schedule = 'cron(0 0 * * ? *)'
         t[:deployment].etl_job_dpu = 22
-        
+
         t[:relation].resolve!
-        
+
         assert_equal(
           {
             generators: [
-              :athena, 
-              :glue, 
-              :markdown_doc, 
-              :html_doc, 
+              :athena,
+              :glue,
+              :fargate,
+              :markdown_doc,
+              :html_doc,
               :control_table
             ],
             full_relation_name: 'env1.domain.schema.relation',
@@ -511,7 +556,10 @@ module ConvergDB
             inventory_source: 's3',
             etl_job_name: 'etl_job',
             etl_job_schedule: 'cron(0 0 * * ? *)',
-            etl_job_dpu: 22
+            etl_job_dpu: 22,
+            etl_technology: nil, # set in resolved parent
+            etl_docker_image: nil, # set in resolved parent
+            etl_docker_image_digest: nil # set in resolved parent
           },
           t[:relation].structure
         )
@@ -785,17 +833,17 @@ module ConvergDB
         t[:relation].storage_bucket = 'bucket-name'
         t
       end
-      
+
       def test_resolve!
         t = resolve_structure_base
         t[:relation].resolve!
-        
+
         # sourced from parent deployment
         assert_equal(
           t[:deployment].environment,
           t[:relation].environment
         )
-        
+
         # set by parent
         assert_equal(
           'domain2',
@@ -814,7 +862,7 @@ module ConvergDB
           'env1.domain2.schema2.relation',
           t[:relation].full_relation_name
         )
-        
+
         assert_equal(
           '',
           t[:relation].inventory_table
@@ -824,7 +872,7 @@ module ConvergDB
           'false',
           t[:relation].streaming_inventory
         )
-        
+
         assert_equal(
           nil,
           t[:relation].streaming_inventory_output_bucket
@@ -834,22 +882,22 @@ module ConvergDB
           nil,
           t[:relation].streaming_inventory_table
         )
-        
+
         # deeper testing for inventory handling
         t = resolve_structure_base
         t[:relation].streaming_inventory = 'true'
         t[:relation].resolve!
-        
+
         assert_equal(
           '${var.admin_bucket}/${var.deployment_id}/streaming_inventory/bucket-name/',
           t[:relation].streaming_inventory_output_bucket
         )
-        
+
         assert_equal(
           'convergdb_inventory_${deployment_id}.bucket__name',
           t[:relation].streaming_inventory_table
         )
-        
+
         # streaming inventory attributes specified
         t = resolve_structure_base
         t[:relation].storage_bucket = 'bucket-name/some/prefix'
@@ -857,7 +905,7 @@ module ConvergDB
         t[:relation].streaming_inventory_output_bucket = 'bucket/prefix'
         t[:relation].streaming_inventory_table = 'this_database.this_table'
         t[:relation].resolve!
-        
+
         assert_equal(
           'bucket/prefix',
           t[:relation].streaming_inventory_output_bucket
@@ -878,15 +926,15 @@ module ConvergDB
         t[:relation].relation_name = 'relation2'
         t[:relation].storage_bucket = 'some-bucket'
         t[:relation].storage_format = 'json'
-        
+
         t[:relation].resolve!
-        
+
         assert_equal(
           {
             generators: [
               :streaming_inventory,
-              :s3_source, 
-              :markdown_doc, 
+              :s3_source,
+              :markdown_doc,
               :html_doc
             ],
             dsd: 'domain.schema.relation',
@@ -900,7 +948,13 @@ module ConvergDB
             inventory_table: '',
             streaming_inventory: "false",
             streaming_inventory_output_bucket: nil,
-            streaming_inventory_table: nil
+            streaming_inventory_table: nil,
+            csv_header: nil,
+            csv_separator: nil,
+            csv_quote: nil,
+            csv_null: nil,
+            csv_escape: nil,
+            csv_trim: nil
           },
           t[:relation].structure
         )
@@ -954,7 +1008,7 @@ module ConvergDB
           [:streaming_inventory, 'false', true],
           [:streaming_inventory, 'True', true],
           [:streaming_inventory, 'josemadre', false],
-          
+
         ].each do |t|
           # if the regex specified by t[0] value of validation_regex hash
           # returns an object the actual value is true... otherwise

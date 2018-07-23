@@ -35,8 +35,8 @@ module ConvergDB
       rule(/#/) { push_state :comment }
       rule(/\n/, :comment) { pop_state }
       rule(/./, :comment)
-      # Identifier rule
-      rule(/[\S]+/) { |t| [:IDENT, t] }
+      # Identifier without quote
+      rule(/^[A-Za-z0-9][A-Za-z0-9_]*/) { |t| [:RIDENT, t] }
     end
   end
 end

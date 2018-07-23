@@ -15,7 +15,8 @@ module ConvergDB
       def htmldoc_generator
         HtmlDoc.new(
           TestIR.dsd_ddd_test_02,
-          ConvergDB::Deployment::TerraformBuilder.new
+          ConvergDB::Deployment::TerraformBuilder.new,
+          nil
         )
       end
 

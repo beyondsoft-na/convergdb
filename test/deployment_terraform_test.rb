@@ -8,6 +8,7 @@ require 'hashdiff'
 
 # imports the ruby file we are testing
 require_relative '../lib/deployment/terraform/terraform.rb'
+require_relative '../lib/version.rb'
 
 module ConvergDB
   module Deployment
@@ -226,12 +227,22 @@ module ConvergDB
           initializer[:region],
           t.region
         )
-
+        
         assert_equal(
-          './modules/aws_athena_relations',
+          ConvergDB::TERRAFORM_MODULES[:aws_athena_relations],
           t.source
         )
 
+        assert_equal(
+          '/tmp/terraform/cloudformation/id123456.json',
+          t.local_stack_file_path
+        )
+
+        assert_equal(
+          './cloudformation/id123456.json',
+          t.local_stack_file_relative_path
+        )
+         
         assert_equal(
           {
             "AWSTemplateFormatVersion" => "2010-09-09",
@@ -310,11 +321,11 @@ module ConvergDB
           structure: {
             module: {
               'id123456' => {
-                source: './modules/aws_athena_relations',
+                source: ConvergDB::TERRAFORM_MODULES[:aws_athena_relations],
                 region: '${var.region}',
                 stack_name: 'id123456',
                 deployment_id: %{${var.deployment_id}},
-                local_stack_file_path: '/tmp/terraform/cloudformation/id123456.json',
+                local_stack_file_path: './cloudformation/id123456.json',
                 s3_stack_key: %{${var.deployment_id}/cloudformation/id123456_${var.deployment_id}.json},
                 admin_bucket: %{${var.admin_bucket}},
                 data_bucket: %{${var.data_bucket}},
@@ -358,7 +369,7 @@ module ConvergDB
         )
 
         assert_equal(
-          './modules/aws_athena_database',
+          ConvergDB::TERRAFORM_MODULES[:aws_athena_database],
           t.source
         )
 
@@ -423,7 +434,7 @@ module ConvergDB
           structure: {
             module: {
               'id123456' => {
-                source: './modules/aws_athena_database',
+                source: ConvergDB::TERRAFORM_MODULES[:aws_athena_database],
                 region: '${var.region}',
                 stack:  "{\"AWSTemplateFormatVersion\":\"2010-09-09\",\"Description\":\"Create ConvergDB databases in Glue catalog\",\"Resources\":{}}",
                 deployment_id: %{${var.deployment_id}}
@@ -494,7 +505,7 @@ module ConvergDB
           structure: {
             module: {
               'id123456' => {
-                source: './modules/aws_glue_etl_job',
+                source: ConvergDB::TERRAFORM_MODULES[:aws_glue_etl_job],
                 stack_name: 'etlJobStackName',
                 region: 'us-west-2',
                 job_name: 'etl_job_name',
@@ -510,7 +521,8 @@ module ConvergDB
                 data_bucket: "${var.data_bucket}",
                 dpu: 2,
                 cloudwatch_namespace: "convergdb/${var.deployment_id}",
-                sns_topic: "${aws_sns_topic.convergdb-notifications.arn}"
+                sns_topic: "${aws_sns_topic.convergdb-notifications.arn}",
+                etl_lock_table: "${var.etl_lock_table}"
               }
             }
           }
@@ -528,6 +540,98 @@ module ConvergDB
       end
     end
 
+    class TestAWSFargateETLJobModule < Minitest::Test
+      def initializer
+        {
+          resource_id: 'id123456',
+          region: 'us-west-2',
+          etl_job_name: 'test_job_name',
+          etl_job_schedule: 'cron(0 0 * * ? *)',
+          local_script: '/tmp/local.py',
+          local_pyspark_library: '/tmp/pyspark.zip',
+          script_bucket: 'myscript.bucket/path',
+          script_key: 's3_prefix/script.py',
+          pyspark_library_key: 's3_prefix/library.zip',
+          lambda_trigger_key: 's3_prefix/lambda.py',
+          docker_image: 'beyondsoftna/convergdb',
+          docker_image_digest: 'sha256:abc123'
+        }
+      end
+
+      def aws_fargate_etl_job_module
+        AWSFargateETLJobModule.new(initializer)
+      end
+
+      def test_initialize
+        t = aws_fargate_etl_job_module
+
+        assert_equal(t.resource_id, 'id123456')
+        assert_equal(t.region, 'us-west-2')
+        assert_equal(t.etl_job_name, 'test_job_name')
+        assert_equal(t.etl_job_schedule, 'cron(0 0 * * ? *)')
+        assert_equal(t.local_script, '/tmp/local.py')
+        assert_equal(t.local_pyspark_library, '/tmp/pyspark.zip')
+        assert_equal(t.script_bucket, 'myscript.bucket/path')
+        assert_equal(t.script_key, 's3_prefix/script.py')
+        assert_equal(t.pyspark_library_key, 's3_prefix/library.zip')
+        assert_equal(t.lambda_trigger_key, 's3_prefix/lambda.py')
+      end
+
+      def test_validation_regex
+        t = aws_fargate_etl_job_module
+        assert_equal(
+          { regex: /.*/, mandatory: true },
+          t.validation_regex[:resource_id]
+        )
+      end
+
+      def test_structure
+        t = aws_fargate_etl_job_module
+
+        expected = {
+          resource_id: 'id123456',
+          resource_type: :aws_fargate_etl_job_module,
+          structure: {
+            module: {
+              'id123456' => {
+                source: ConvergDB::TERRAFORM_MODULES[:aws_fargate_etl_job],
+                region: 'us-west-2',
+                deployment_id: '${var.deployment_id}',
+                etl_job_name: 'test_job_name',
+                etl_job_schedule: 'cron(0 0 * * ? *)',
+                local_script: '/tmp/local.py',
+                local_pyspark_library: '/tmp/pyspark.zip',
+                script_bucket: 'myscript.bucket/path',
+                script_key: 's3_prefix/script.py',
+                pyspark_library_key: 's3_prefix/library.zip',
+                lambda_trigger_key: 's3_prefix/lambda.py',
+                admin_bucket: '${var.admin_bucket}',
+                data_bucket: '${var.data_bucket}',
+                cloudwatch_namespace: 'convergdb/${var.deployment_id}',
+                sns_topic: '${aws_sns_topic.convergdb-notifications.arn}',
+                ecs_subnet: '${var.fargate_subnet}',
+                ecs_cluster: '${var.fargate_cluster}', 
+                ecs_log_group: '${var.ecs_log_group}',
+                docker_image: "beyondsoftna/convergdb@sha256:abc123",
+                execution_task_role: '${var.ecs_execution_role}',
+                etl_lock_table: "${var.etl_lock_table}"
+              }
+            }
+          }
+        }
+
+        assert_equal(
+          expected,
+          t.structure,
+          puts(
+          HashDiff.diff(
+            expected,
+            t.structure)
+          )
+        )
+      end
+    end
+    
     class TestStreamingInventoryModule < Minitest::Test
       def initializer
         {
@@ -607,7 +711,7 @@ module ConvergDB
           structure: {
             module: {
               'streaming_inventory_some__bucket' => {
-                source: './modules/streaming_inventory',
+                source: ConvergDB::TERRAFORM_MODULES[:aws_s3_streaming_inventory],
                 region: '${var.region}',
                 firehose_stream_name: 'convergdb-${var.deployment_id}-eaccd2f51cbee31dfd8adf145c26a246',
                 source_bucket: 'some.bucket',
@@ -664,6 +768,23 @@ module ConvergDB
           schedule: 'cron(0 * * * ? *)',
           stack_name: 'etlJobStackName',
           service_role: 'glueService'
+        }
+      end
+      
+      def aws_fargate_etl_job_params
+        {
+          resource_id: 'id123456',
+          region: 'us-west-2',
+          etl_job_name: 'test_job_name',
+          etl_job_schedule: 'cron(0 0 * * ? *)',
+          local_script: '/tmp/local.py',
+          local_pyspark_library: '/tmp/pyspark.zip',
+          script_bucket: 'myscript.bucket/path',
+          script_key: 's3_prefix/script.py',
+          pyspark_library_key: 's3_prefix/library.zip',
+          lambda_trigger_key: 's3_prefix/lambda.py',
+          admin_bucket: '${var.admin_bucket}',
+          data_bucket: '${var.data_bucket}'
         }
       end
 
@@ -755,6 +876,17 @@ module ConvergDB
         )
       end
 
+      def test_aws_fargate_etl_job_module!
+        t = terraform_builder
+
+        t.aws_fargate_etl_job_module!(aws_fargate_etl_job_params)
+
+        assert_equal(
+          AWSFargateETLJobModule,
+          t.resources.first.class
+        )
+      end
+      
       def test_streaming_inventory_module!
         t = terraform_builder
         # add a streaming inventory module

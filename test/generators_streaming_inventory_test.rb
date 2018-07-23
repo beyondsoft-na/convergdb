@@ -20,7 +20,8 @@ module ConvergDB
       def streaming_inventory_generator
         StreamingInventoryTableGenerator.new(
           TestIR.dsd_ddd_test_s3_source,
-          ConvergDB::Deployment::TerraformBuilder.new
+          ConvergDB::Deployment::TerraformBuilder.new,
+          nil
         )
       end
 

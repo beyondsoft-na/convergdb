@@ -15,356 +15,241 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 require 'aws-sdk-glue'
+require 'aws-sdk-cloudwatchevents'
 require 'aws-sdk-s3'
-require_relative '../base_ir.rb'
 require_relative '../../exceptions.rb'
-require 'json'
-require 'pp'
-require 'digest'
 
 module ConvergDB
   # live state of objects inside AWS managed by convergdb.
   module LiveState
-    # creates a representation of the live state of the athena tables in aws
+    # creates a representation of the live state of objects in aws
     class IR
       include ConvergDB::ErrorHandling
 
-      # reads a file from S3 then returns the contents as a string.
-      # @param [String] bucket
-      # @param [String] key
-      # @param [String] warning
-      def s3_object_to_string(bucket, key, warning = 's3 get object error')
-        log_warning(warning) do
-          s3 = s3_client
-          resp = s3.get_object(
-            bucket: bucket,
-            key: key
-          )
-          return resp.body.read rescue nil
-        end
-      end
-
       # returns deployment_id from the tfstate file if it exists
       # @return [String]
-      def get_deployment_id(
-          local_state_path = tfstate_path,
-          backend_path = tfjson_path
-        )
-        # this will be our return value.
+      def get_deployment_id
         # nil means that no deployment_id was found
         deployment_id = nil
         ignore_error do
-          # first check to see if a local tfstate file exists
-          if File.exist?(local_state_path)
-            # if it exists... we will attempt to extract the deployment_id
-            deployment_id = deployment_id_from_tfstate_json(
-              File.read(local_state_path)
-            )
-
-          # if no local file... let's check for tf backend configuration
-          elsif File.exist?(backend_path)
-            # if we have a backend config... extract the s3 location info
-            # in order to pull down the state file
-            s3_attributes = s3_attributes_from_tf_backend(
-              File.read(backend_path)
-            )
-
-            # attempt to pull down state file as a string
-            resp = s3_object_to_string(
-              s3_attributes[:bucket],
-              s3_attributes[:key],
-              'tf state backend not found'
-            )
-
-            # if we have some text... try to extract the deployment_id
-            unless resp.nil?
-              deployment_id = deployment_id_from_tfstate_json(resp)
-            end
-          end
+          deployment_id = variables_file_text.match(
+            /variable\s\"deployment_id\"\s+\{(.|\w)*?}/m
+          )[0].split('"')[3]
         end
         # return whatever we did or did not find
         deployment_id
       end
-
-      # extracts deployment_id from a json string
-      # @param [String] tfstate_json
-      def deployment_id_from_tfstate_json(tfstate_json)
-        # first turn the json into a hash
-        r = {}
+      
+      # text of the file containing variables for this deployment
+      # @return [String]
+      def variables_file_text
         ignore_error do
-          r = JSON.parse(tfstate_json)
+          File.read(local_variables_path)
         end
-        # if no modules present or other bs
-        # then there is nothing to see here
-        return nil unless r.key?('modules')
-        # iterate the modules looking for the structure we want
-        r['modules'].each do |m|
-          begin
-            if m['path'] == ['root']
-              # return this as the deployment id...
-              return m['resources']['random_id.convergdb_deployment_id']['primary']['attributes']['dec']
-            end
-          rescue => e
-            # ...but trap the error in case the key doesn't exist
-            nil
-          end
-        end
-        # nil is default which means no deployment_id found
-        nil
       end
-
-      # parses out bucket, key, and region from backend config file created
-      # by convergdb bootstrap.
-      # @param [String] backend_json json text of backend config
-      # @return [Hash]
-      def s3_attributes_from_tf_backend(backend_json)
-        j = {}
-        ignore_error do
-          j = JSON.parse(backend_json)
-        end
-        return nil unless j.key?('terraform')
-        {
-          bucket: j['terraform']['backend']['s3']['bucket'],
-          key: j['terraform']['backend']['s3']['key'],
-          region: j['terraform']['backend']['s3']['region']
-        }
-      end
-
-      # path to the local terraform state file
-      def tfstate_path
-        './terraform/terraform.tfstate'
-      end
-
-      # path to the terraform backend configuration file created by
-      # convergdb bootstrap process
-      def tfjson_path
-        './terraform/terraform.tf.json'
+      
+      # @return [String]
+      def local_variables_path
+        './terraform/variables.tf'
       end
 
       # creates a glue client. will infer credentials using the normal
       # precedence of the aws sdk.
       # @return [Aws::Glue::Client]
       def glue_client
-        @glue_client ||= Aws::Glue::Client.new
+        log_warning('unable to connect to AWS glue') do
+          @glue_client ||= Aws::Glue::Client.new
+        end
+      end
+
+      # creates a cw events client. will infer credentials using the normal
+      # precedence of the aws sdk.
+      # @return [Aws::CloudWatchEvents::Client]
+      def cloudwatchevents_client
+        log_warning('error connecting to AWS events') do
+          @cloudwatchevents_client ||= Aws::CloudWatchEvents::Client.new
+        end
+      end
+      
+      # trims all the fluff from the cloudwatch rule name
+      # @param [String] rule
+      # @return [String]
+      def rule_name_to_etl_job(rule)
+        rule.gsub(/^convergdb\-(\d|[abcdef]){16}\-/, '').gsub(/\-trigger$/, '')
+      end
+      
+      # calls AWS to get the event rules. rules are tagged to indicate
+      # whether or not they are a part of the specified deployment.
+      # @param [Aws::CloudWatchEvents::Client] client
+      # @param [String] deployment_id
+      # @return [Array<Hash>]
+      def event_rules_for_comparison(client, deployment_id)
+        rules = []
+        client.list_rules.each do |resp|
+          resp.rules.each do |rule|
+            if deployment_id
+              if rule.name.match(/^convergdb\-#{deployment_id}/)
+                rules << {
+                  name: rule_name_to_etl_job(rule.name),
+                  technology: 'aws_fargate',
+                  this_deployment: true
+                }
+              elsif rule.name.match(/^convergdb/)
+                rules << {
+                  name: rule_name_to_etl_job(rule.name),
+                  technology: 'aws_fargate',
+                  this_deployment: false
+                }
+              end
+            else
+              if rule.name.match(/^convergdb/)
+                rules << {
+                  name: rule_name_to_etl_job(rule.name),
+                  technology: 'aws_fargate',
+                  this_deployment: false
+                }
+              end
+            end
+          end
+        end
+        rules
       end
 
       # creates a s3 client. will infer credentials using the normal
       # precedence of the aws sdk.
       # @return [Aws::S3::Client]
       def s3_client
-        @s3_client ||= Aws::S3::Client.new
-      end
-
-      # get a list of all database names available in this aws region
-      # @return [Array<String>]
-      def database_names
-        @database_names ||= glue_client.get_databases.database_list.map(&:name)
-      end
-
-      # makes a single call to get metadata for tables associated with the
-      # given database.
-      # @param [String] database
-      # @param [String] next_token defaults to nil if not provided
-      # @return [Struct] database table metadata
-      def tables_for_database(database, next_token = nil)
-        m = glue_client.get_tables(
-          {
-            database_name: database,
-            next_token: next_token
-          }
-        )
-      end
-
-      # gathers all of the metadata about the tables in a database.
-      # this function handles the continuation token nature of the api calls.
-      # note that the results are filtered for tables created by convergdb.
-      # @param [String] database
-      # @return [Array<Struct>]
-      def all_tables_for_database(database)
-        t = []
-        # next token is outside of the loop
-        next_token = nil
-        loop do
-          # first call will be for first result set because next_token is nil.
-          resp = tables_for_database(
-            database,
-            next_token
-          )
-          # append all of the tables to the array
-          resp.table_list.each do |tbl|
-            t << tbl.to_h
-          end
-          # set next_token if there is one
-          next_token = resp.next_token
-          # otherwise exit the loop
-          break if next_token.nil?
+        log_warning('unable to connect to s3') do
+          @s3_client ||= Aws::S3::Client.new
         end
-        t
       end
-
-      # filter for only convergdb managed tables and return
-      # @param [Array<Hash>] tables
+      
+      # creates a list of fargate ETL jobs currently deployed in AWS
       # @return [Array<Hash>]
-      def convergdb_relations_only(tables)
-        tables.select do |f|
-          f[:parameters].has_key?('convergdb_full_relation_name')
+      def fargate_etl_jobs
+        log_warning('error identifying Fargate ETL jobs in AWS.. please check credentials') do
+          event_rules_for_comparison(
+            cloudwatchevents_client,
+            get_deployment_id
+          )
         end
       end
 
-      # extracts a comparable table structure from the API response structure
-      # @param [Hash] tbl table object from glue API
+      # calls AWS to get the Glue ETL jobs which are tagged to indicate
+      # whether or not they are a part of the specified deployment.
+      # @param [Aws::Glue::Client] client
       # @param [String] deployment_id
-      def comparable_table(tbl, deployment_id)
-        # info is extracted from the parameters associated with the table.
-        # these p
-        # use show TBLPROPERTIES tablename to see this info via athena.
-        t = tbl[:parameters]
-        {
-          full_relation_name: t['convergdb_full_relation_name'],
-          dsd: t['convergdb_dsd'],
-          storage_bucket: convergdb_bucket_reference(
-            t['convergdb_storage_bucket'],
-            deployment_id
-          ),
-          state_bucket: convergdb_bucket_reference(
-            t['convergdb_state_bucket'],
-            deployment_id
-          ) || '',
-          storage_format: t['convergdb_storage_format'],
-          etl_job_name: t['convergdb_etl_job_name'] || '',
-          attributes: tbl[:storage_descriptor][:columns].map do |c|
-            {
-              name: c[:name],
-              data_type: c[:type],
-              expression: c[:comment].to_s
-            }
-          end
-        }
-      end
-
-      # creates a hash which can be compared to elements in the primary IR.
-      # info is extracted from the parameters associated with the table
-      # at create time.
-      # use show TBLPROPERTIES tablename to see this info via athena.
-      # @return [Hash]
-      def comparable_athena_relations
-        deployment_id = get_deployment_id
-        athena_relations = {}
-        if deployment_id
-          database_names.each do |db|
-            convergdb_relations_only(
-              all_tables_for_database(db)
-            ).each.map do |r|
-              # info is extracted from the parameters associated with the table.
-              # use show TBLPROPERTIES tablename to see this info via athena.
-              t = r[:parameters]
-              if t['convergdb_deployment_id'] == deployment_id
-                athena_relations[
-                  t['convergdb_full_relation_name']
-                ] = comparable_table(r, deployment_id)
+      # @return [Array<Hash>]
+      def glue_etl_jobs_for_comparison(client, deployment_id)
+        jobs = []
+        if client
+          client.get_jobs.each do |resp|
+            resp.jobs.each do |job|
+              if deployment_id
+                if job.default_arguments.key?('--convergdb_deployment_id')
+                  if job.default_arguments['--convergdb_deployment_id'] == deployment_id
+                    jobs << {
+                      name: job.name,
+                      technology: 'aws_glue',
+                      this_deployment: true
+                    }
+                  else
+                    jobs << {
+                      name: job.name,
+                      technology: 'aws_glue',
+                      this_deployment: false
+                    }
+                  end
+                end
+              else
+                jobs << {
+                  name: job.name,
+                  technology: 'aws_glue',
+                  this_deployment: false
+                }
               end
             end
           end
         end
-        # puts JSON.pretty_generate(athena_relations)
-        athena_relations
+        return jobs
       end
 
-      # replaces convergdb bootstrap bucket references with
-      # variable name to allow comparison to primary_ir.
-      # @param [String] input
-      # @return [String]
-      def convergdb_bucket_reference(input, deployment_id)
-        return input unless input.class == String
-        admin_bucket = /^convergdb\-admin\-[0-9a-f]{16}/
-        data_bucket  = /^convergdb\-data\-[0-9a-f]{16}/
-        input.gsub(
-          admin_bucket,
-          '${admin_bucket}'
-        ).gsub(
-          data_bucket,
-          '${data_bucket}'
-        ).gsub(
-          deployment_id.to_s,
-          '${deployment_id}'
-        )
-      end
-
-      # @return [Hash] glue get_trigger response as hash
-      def glue_triggers
-        return @glue_triggers if defined?(@glue_triggers)
-        @glue_triggers = glue_client.get_triggers.to_h
-      end
-
-      # @param [Hash] trigger_response
+      # creates a list of glue ETL jobs currently deployed in AWS
       # @return [Array<Hash>]
-      def convergdb_glue_triggers(trigger_response)
-        trigger_response[:triggers].select { |tr| tr[:name] =~ /^convergdb\-*/ }
-      end
-
-      # returns a simple hash with ETL job triggers keyed by job name
-      # @param [Array<Hash>] triggers
-      # @return [Hash]
-      def schedules_by_job_name(triggers)
-        ret = {}
-        triggers.each do |t|
-          ret[t[:actions][0][:job_name]] = t[:schedule]
-        end
-        ret
-      end
-
-      # @return [Hash]
       def glue_etl_jobs
-        return @glue_etl_jobs if defined?(@glue_etl_jobs)
-        @glue_etl_jobs = glue_client.get_jobs.jobs.to_a.map(&:to_h)
+        log_warning('error identifying Glue ETL jobs in AWS.. please check credentials') do
+          glue_etl_jobs_for_comparison(
+            glue_client,
+            get_deployment_id
+          )
+        end
       end
 
-      # @param [Array<Hash>] etl_jobs
+      # creates a list of ETL jobs currently deployed in AWS
       # @return [Array<Hash>]
-      def convergdb_etl_jobs(etl_jobs)
-        etl_jobs.select do |j|
-          j[:default_arguments].key?('--convergdb_deployment_id')
-        end
+      def all_etl_jobs
+        fargate_etl_jobs + glue_etl_jobs
       end
-
-      # @param [Array<Hash>] convergdb_jobs
-      # @param [String]  deployment_id
-      # @param [Array<Hash>]
-      def convergdb_this_deployment_etl_jobs(convergdb_jobs, deployment_id)
-        convergdb_jobs.select do |j|
-          j[:default_arguments]['--convergdb_deployment_id'] == deployment_id
+      
+      # creates a list of all databases in AWS glue catalog.
+      # @param [Aws::Glue::Client] client
+      # @return [Array<String>]
+      def glue_databases(client)
+        databases = []
+        client.get_databases.each do |resp|
+          resp.database_list.each do |db|
+            databases << db.name
+          end
         end
+        databases
       end
-
-      # creates an array which can be compared to elements in the primary IR.
-      # @param [Array<Hash>] etl_jobs in hash format returned by AWS SDK
-      # @return [Array]
-      def comparable_glue_etl_jobs(
-          etl_jobs = glue_etl_jobs,
-          schedule = schedules_by_job_name(
-            convergdb_glue_triggers(
-              glue_triggers
-            )
-          ),
-          deployment_id = get_deployment_id
-        )
-
-        job_list = []
-        if deployment_id
-          job_list = convergdb_this_deployment_etl_jobs(
-            convergdb_etl_jobs(
-              etl_jobs
-            ),
-            deployment_id
-          ).map { |j| j[:name] }
+      
+      # creates a list of glue tables that exist in the current AWS environment.
+      # @param [Aws::Glue::Client] client
+      # @param [Array<String>] databases a list of databases (see glue_database method)
+      # @param [String] deployment_id
+      # @return [Array<String>]
+      def glue_tables(client, databases, deployment_id)
+        tables = []
+        databases.each do |db|
+          client.get_tables(database_name: db).each do |resp|
+            resp.table_list.each do |table|
+              if table.parameters.key?('convergdb_deployment_id')
+                if table.parameters['convergdb_deployment_id'] == deployment_id
+                  tables << {
+                    name: "#{db}.#{table.name}",
+                    this_deployment: true
+                  }
+                else
+                  tables << {
+                    name: "#{db}.#{table.name}",
+                    this_deployment: false
+                  }
+                end
+              else
+                tables << {
+                  name: "#{db}.#{table.name}",
+                  this_deployment: false
+                }
+              end
+            end
+          end
         end
-        job_list.map do |j|
-          {
-            name: j,
-            schedule: schedule[j]
-          }
+        tables
+      end
+      
+      # a list of tables in the current AWS deployment
+      # @return [Array<Hash>]
+      def all_tables
+        log_warning('error identifying tables in AWS.. please check credentials') do
+          glue_tables(
+            glue_client,
+            glue_databases(glue_client),
+            get_deployment_id
+          )
         end
       end
     end
   end
 end
+

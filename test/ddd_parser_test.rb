@@ -20,7 +20,7 @@ module ConvergDB
             str: %{athena "ns" {
                 }},
             desired_tokens: [
-              "IDENT(athena)",
+              "RIDENT(athena)",
               "IDENT(\"ns\")",
               "LBRACE",
               "RBRACE",
@@ -31,7 +31,7 @@ module ConvergDB
             str: %{s3_source "ns" {
                 }},
             desired_tokens: [
-              "IDENT(s3_source)",
+              "RIDENT(s3_source)",
               "IDENT(\"ns\")",
               "LBRACE",
               "RBRACE",
@@ -55,43 +55,43 @@ module ConvergDB
               source_relation_prefix = "ns.db.schema"
               },
             desired_tokens: [
-              "IDENT(region)",
+              "RIDENT(region)",
               "EQUAL",
               "IDENT(\"us-west-2\")",
-              "IDENT(domain_name)",
+              "RIDENT(domain_name)",
               "EQUAL",
               "IDENT(\"domainname\")",
-              "IDENT(schema_name)",
+              "RIDENT(schema_name)",
               "EQUAL",
               "IDENT(\"schemaname\")",
-              "IDENT(service_role)",
+              "RIDENT(service_role)",
               "EQUAL",
               "IDENT(\"glueService\")",
-              "IDENT(script_bucket)",
+              "RIDENT(script_bucket)",
               "EQUAL",
               "IDENT(\"bucket-name\")",
-              "IDENT(temp_s3_location)",
+              "RIDENT(temp_s3_location)",
               "EQUAL",
               "IDENT(\"s3://bucket/location\")",
-              "IDENT(storage_format)",
+              "RIDENT(storage_format)",
               "EQUAL",
               "IDENT(\"parquet\")",
-              "IDENT(etl_job_name)",
+              "RIDENT(etl_job_name)",
               "EQUAL",
               "IDENT(\"etl_job\")",
-              "IDENT(etl_job_schedule)",
+              "RIDENT(etl_job_schedule)",
               "EQUAL",
               "IDENT(\"cron(0 0 * \" # * ? *)\"\")",
-              "IDENT(storage_bucket)",
+              "RIDENT(storage_bucket)",
               "EQUAL",
               "IDENT(\"storage-bucket\")",
-              "IDENT(state_bucket)",
+              "RIDENT(state_bucket)",
               "EQUAL",
               "IDENT(\"state-bucket\")",
-              "IDENT(relation_name)",
+              "RIDENT(relation_name)",
               "EQUAL",
               "IDENT(\"relation2\")",
-              "IDENT(source_relation_prefix)",
+              "RIDENT(source_relation_prefix)",
               "EQUAL",
               "IDENT(\"ns.db.schema\")",
               "EOS"
@@ -105,7 +105,7 @@ module ConvergDB
         [
           {
             str: %{
-                athena "ns" []
+                athena "ns" a_12
               }
           },
           {
@@ -118,7 +118,7 @@ module ConvergDB
           {
             str: %{
                 athena "ns" {
-                  relations []
+                  relations {}
                     relation {}
                 }
               }
@@ -127,7 +127,7 @@ module ConvergDB
             str: %{
                 athena "ns" {
                   relations {
-                    relation []
+                    relat11ion
                   }
                 }
               }

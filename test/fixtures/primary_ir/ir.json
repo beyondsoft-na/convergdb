@@ -66,6 +66,7 @@
     "generators": [
       "athena",
       "glue",
+      "fargate",
       "markdown_doc",
       "html_doc",
       "control_table"
@@ -86,6 +87,9 @@
     "etl_job_name": "nightly_batch",
     "etl_job_schedule": "cron(0 0 * * ? *)",
     "etl_job_dpu": 2,
+    "etl_technology": "aws_glue",
+    "etl_docker_image": null,
+    "etl_docker_image_digest": null,
     "attributes": [
       {
         "name": "item_number",

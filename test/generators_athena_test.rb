@@ -20,38 +20,8 @@ module ConvergDB
       def athena_generator
         AWSAthena.new(
           TestIR.dsd_ddd_test_02,
-          ConvergDB::Deployment::TerraformBuilder.new
-        )
-      end
-
-      # there needs to be more here.
-      def test_message
-        a = athena_generator
-        a.current_state = {}
-        msg = a.message(
-          a.structure,
-          a.current_state,
-          HashDiff.diff(a.current_state, a.comparable(a.structure))
-        )
-
-        # adding a fresh relation
-        expected = [
-          Rainbow('athena: production.test_database.test_schema.books_target').bright.green + "\n",
-          Rainbow("  new relation").green + "\n",
-          Rainbow("  + attributes = [{:name=>\"title\", :data_type=>\"string\", :expression=>\"#{Digest::MD5.new.hexdigest('title')}\"}, {:name=>\"author\", :data_type=>\"string\", :expression=>\"#{Digest::MD5.new.hexdigest('author')}\"}, {:name=>\"publisher\", :data_type=>\"string\", :expression=>\"#{Digest::MD5.new.hexdigest('publisher')}\"}, {:name=>\"genre\", :data_type=>\"string\", :expression=>\"#{Digest::MD5.new.hexdigest('genre')}\"}]").green + "\n",
-          Rainbow("  + dsd = test_database.test_schema.books_target").green + "\n",
-          Rainbow("  + etl_job_name = test_etl_job").green + "\n",
-          Rainbow("  + full_relation_name = production.test_database.test_schema.books_target").green + "\n",
-          Rainbow("  + state_bucket = fakedata-state.beyondsoft.us").green + "\n",
-          Rainbow("  + storage_bucket = fakedata-target.beyondsoft.us").green + "\n",
-          Rainbow("  + storage_format = parquet").green + "\n",
-          "\n"
-        ]
-
-        assert_equal(
-          expected,
-          msg,
-          puts(expected)
+          ConvergDB::Deployment::TerraformBuilder.new,
+          nil
         )
       end
 
@@ -69,7 +39,7 @@ module ConvergDB
           },
           {
             diff_record: ['~', 'this', 'that', 'the other'],
-            colored: "  ~ this from 'that' to 'the other'" + "\n"
+            colored: Rainbow("  ~ this from 'that' to 'the other'").yellow + "\n"
           }
         ].each do |d|
           assert_equal(
@@ -86,6 +56,114 @@ module ConvergDB
         # create_static_artifacts has it's own test
         # terraform_builder calls have their own tests
         # params for tf builder calls have their own tests
+      end
+
+
+      #! DIFF METHODS
+      
+      def get_table_response
+        {:table=>
+          {:name=>"clicks",
+           :owner=>"hadoop",
+           :create_time=>'2018-03-27 12:19:12 -0700',
+           :update_time=>'2018-03-27 12:19:12 -0700',
+           :retention=>0,
+           :storage_descriptor=>
+            {:columns=>
+              [{:name=>"id",
+                :type=>"string",
+                :comment=>"b80bb7740288fda1f201890375a60c8f"},
+               {:name=>"event_timestamp",
+                :type=>"timestamp",
+                :comment=>"a92e415b04d7bdcb9a78d75059e7ae66"},
+               {:name=>"impression_id",
+                :type=>"string",
+                :comment=>"41fd60e1d4c4bc54fae50625fbc018e7"}],
+             :location=>
+              "s3://convergdb-data-9083c59b16173549/9083c59b16173549/demo.ad_tech.events.clicks/",
+             :input_format=>
+              "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
+             :output_format=>
+              "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
+             :compressed=>false,
+             :number_of_buckets=>-1,
+             :serde_info=>
+              {:serialization_library=>
+                "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe",
+               :parameters=>{"serialization.format"=>"1"}},
+             :bucket_columns=>[],
+             :sort_columns=>[],
+             :parameters=>{},
+             :skewed_info=>
+              {:skewed_column_names=>[],
+               :skewed_column_values=>[],
+               :skewed_column_value_location_maps=>{}},
+             :stored_as_sub_directories=>false},
+           :partition_keys=>
+            [{:name=>"event_date",
+              :type=>"date",
+              :comment=>"584a94b34670c757e9380efdb61b223d"}],
+           :table_type=>"EXTERNAL_TABLE",
+           :parameters=>
+            {"EXTERNAL"=>"TRUE",
+             "classification"=>"parquet",
+             "convergdb_database_cf_id"=>
+              "arn:aws:cloudformation:us-west-2:692977618922:stack/convergdb-tf-db-9083c59b16173549-11941373370256685717/b0b5ab70-31f3-11e8-80e1-503ac9841a99",
+             "convergdb_deployment_id"=>"9083c59b16173549",
+             "convergdb_dsd"=>"ad_tech.events.clicks",
+             "convergdb_etl_job_name"=>"demo_ad_tech_etl_job",
+             "convergdb_full_relation_name"=>"demo.ad_tech.events.clicks",
+             "convergdb_state_bucket"=>"convergdb-admin-9083c59b16173549",
+             "convergdb_storage_bucket"=>
+              "convergdb-data-9083c59b16173549/9083c59b16173549/demo.ad_tech.events.clicks",
+             "convergdb_storage_format"=>"parquet"},
+           :created_by=>"arn:aws:iam::692977618922:user/zuqing"}}
+      end
+      
+      def test_comparable_aws_table
+        a = athena_generator
+        expected = {
+          dsd: 'ad_tech.events.clicks',
+          storage_bucket: a.convergdb_bucket_reference(
+            'convergdb-data-9083c59b16173549/9083c59b16173549/demo.ad_tech.events.clicks',
+            '9083c59b16173549'
+          ),
+          state_bucket: a.convergdb_bucket_reference(
+            'convergdb-admin-9083c59b16173549',
+            '9083c59b16173549'
+          ),
+          storage_format: 'parquet',
+          etl_job_name: 'demo_ad_tech_etl_job',
+          attributes: [
+            {
+              name: "id",
+              data_type: "string",
+              expression: "b80bb7740288fda1f201890375a60c8f"
+            },
+            {
+              name: "event_timestamp",
+              data_type: "timestamp",
+              expression: "a92e415b04d7bdcb9a78d75059e7ae66"
+            },
+            {
+              name: "impression_id",
+              data_type: "string",
+              expression: "41fd60e1d4c4bc54fae50625fbc018e7"
+            }
+          ],
+          partitions: [
+            {
+              name: 'event_date',
+              data_type: 'date',
+              expression: '584a94b34670c757e9380efdb61b223d'
+            }
+          ]
+        }
+        
+        assert_equal(
+          expected,
+          a.comparable_aws_table(get_table_response)
+        )
       end
 
       def test_aws_glue_database_module_params
@@ -140,25 +218,6 @@ module ConvergDB
         # files should be created at this point
 
         a.create_static_artifacts!(test_working_path)
-
-        # validate that modules were copied
-        [
-          'modules/aws_athena_database/main.tf',
-          'modules/aws_athena_database/variables.tf',
-          'modules/aws_athena_relations/main.tf',
-          'modules/aws_athena_relations/variables.tf'
-        ].each do |tf|
-          orig = File.expand_path(
-            "#{File.dirname(__FILE__)}/../lib/generators/athena/#{tf}"
-          )
-          assert_equal(
-            true,
-            file_contents_match?(
-              orig,
-              "#{test_working_path}/terraform/#{tf}"
-            )
-          )
-        end
       ensure
         FileUtils.rm_r(test_working_path) rescue nil
       end
@@ -244,7 +303,6 @@ module ConvergDB
         a = athena_generator
         assert_equal(
           {
-            full_relation_name: 'production.test_database.test_schema.books_target',
             dsd: 'test_database.test_schema.books_target',
             # temporarily removed until i can figure out how to
             # handle terraform vars
@@ -256,24 +314,25 @@ module ConvergDB
               {
                 name: 'title',
                 data_type: a.athena_data_type('varchar(100)'),
-                expression: Digest::MD5.new.hexdigest('title')
+                expression: "#{Digest::MD5.new.hexdigest('title')}_#{Digest::MD5.new.hexdigest('varchar(100)')}"
               },
               {
                 name: 'author',
                 data_type: a.athena_data_type('varchar(100)'),
-                expression: Digest::MD5.new.hexdigest('author')
+                expression: "#{Digest::MD5.new.hexdigest('author')}_#{Digest::MD5.new.hexdigest('varchar(100)')}"
               },
               {
                 name: 'publisher',
                 data_type: a.athena_data_type('varchar(100)'),
-                expression: Digest::MD5.new.hexdigest('publisher')
+                expression: "#{Digest::MD5.new.hexdigest('publisher')}_#{Digest::MD5.new.hexdigest('varchar(100)')}"
               },
               {
                 name: 'genre',
                 data_type: a.athena_data_type('varchar(100)'),
-                expression: Digest::MD5.new.hexdigest('genre')
+                expression: "#{Digest::MD5.new.hexdigest('genre')}_#{Digest::MD5.new.hexdigest('varchar(100)')}"
               }
-            ]
+            ],
+            partitions: []
           },
           a.comparable(a.structure)
         )
@@ -357,22 +416,22 @@ module ConvergDB
                     {
                       'Name' => 'title',
                       'Type' => a.athena_data_type('varchar(100)'),
-                      'Comment' => Digest::MD5.new.hexdigest('title')
+                      'Comment' => "#{Digest::MD5.new.hexdigest('title')}_#{Digest::MD5.new.hexdigest('varchar(100)')}"
                     },
                     {
                       'Name' => 'author',
                       'Type' => a.athena_data_type('varchar(100)'),
-                      'Comment' => Digest::MD5.new.hexdigest('author')
+                      'Comment' => "#{Digest::MD5.new.hexdigest('author')}_#{Digest::MD5.new.hexdigest('varchar(100)')}"
                     },
                     {
                       'Name' => 'publisher',
                       'Type' => a.athena_data_type('varchar(100)'),
-                      'Comment' => Digest::MD5.new.hexdigest('publisher')
+                      'Comment' => "#{Digest::MD5.new.hexdigest('publisher')}_#{Digest::MD5.new.hexdigest('varchar(100)')}"
                     },
                     {
                       'Name' => 'genre',
                       'Type' => a.athena_data_type('varchar(100)'),
-                      'Comment' => Digest::MD5.new.hexdigest('genre')
+                      'Comment' => "#{Digest::MD5.new.hexdigest('genre')}_#{Digest::MD5.new.hexdigest('varchar(100)')}"
                     }
                   ],
                   "Compressed" => false

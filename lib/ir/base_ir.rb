@@ -129,6 +129,15 @@ module ConvergDB
       return false unless str =~ pattern
       true
     end
+    
+    def coerced_string_match?(str, pattern, mandatory = false)
+      # puts "validating #{str} with pattern #{pattern}"
+      unless mandatory == true
+        return true unless str
+      end
+      return false unless str.to_s =~ pattern
+      true
+    end
 
     # validates all attributes defined by validation_regex
     def validate_string_attributes

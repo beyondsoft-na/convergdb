@@ -89,7 +89,7 @@ module ConvergDB
       # sort. the dsd names are graphed with references to their
       # source relations. this is a validation that returns
       # nothing and raises and error if the check fails.
-      # @param [Array<Hash>] dsd_ir
+      # @param [Array<Hash>] primary_ir
       def primary_ir_circular_dependency_check(primary_ir)
         log_and_raise_error(
           "dependency failure in implementation relations"
@@ -134,8 +134,8 @@ module ConvergDB
       # of itself.
       # @param [Array<Hash>] ir
       # @param [Array<Hash>] dsd_ir
-      # @param [Symbol] new attribute name in ir target (ignored if nil)
-      # @param [Symbol] attribute name of attribute to copy from dsd_ir
+      # @param [Symbol] attribute new attribute name in ir target (ignored if nil)
+      # @param [Symbol] override attribute name of attribute to copy from dsd_ir
       def ir_add_dsd_attribute!(ir, dsd_ir, attribute, override=nil)
         attribute = override ? override : attribute
         ir.keys.each do |k|
@@ -153,7 +153,7 @@ module ConvergDB
       # @param [Array<Hash>] ir
       # @param [Array<Hash>] dsd_ir
       # @param [Symbol] attribute name of attribute to copy from dsd_ir
-      # @param [Symbol] new attribute name in ir target
+      # @param [Symbol] override new attribute name in ir target
       def ir_add_dsd_attribute_with_override!(ir, dsd_ir, attribute, override)
         ir.keys.each do |k|
           if dsd_ir[ir[k][:dsd]]
@@ -305,6 +305,9 @@ module ConvergDB
         h
       end
 
+      # @param [Array<Hash>] primary_ir
+      # @param [String] full_relation_name
+      # @return [Hash]
       def primary_ir_by_relation_name(primary_ir, full_relation_name)
         primary_ir.each do |primary|
           if primary[:full_relation_name] == full_relation_name
