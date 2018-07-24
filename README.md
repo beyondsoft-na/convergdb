@@ -2,7 +2,7 @@
 
 # DevOps for Data
 
-[http://convergdb.com]() - Official ConvergDB site.
+[http://convergdb.com](http://convergdb.com) - Official ConvergDB site.
 
 Please refer to the Github wiki for install and technical documentation.
 
