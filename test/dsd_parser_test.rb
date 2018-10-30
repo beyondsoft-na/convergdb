@@ -461,22 +461,6 @@ module ConvergDB
         # each hash is a test case with a str: and desired_ast:
         {
           str: %{domain "domain_name" {
-              }},
-          desired_ast: [
-            "[:domain_name, \"domain_name\"]"
-          ]
-        },
-        {
-          str: %{domain "domain_name" {
-                 schema "schema_name" {}
-              }},
-          desired_ast: [
-            "[:domain_name, \"domain_name\"]",
-            "[:schema_name, \"schema_name\"]"
-          ]
-        },
-        {
-          str: %{domain "domain_name" {
                  schema "schema_name" {
                     relation "relation_name" {
                       relation_type = base

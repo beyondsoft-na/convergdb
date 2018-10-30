@@ -1,5 +1,9 @@
 ## Changelog
 
+### 0.0.6.8 2018-10-30
+
+* fixed parser issue which degraded performance and required very large heap size
+
 ### 0.0.6.7 2018-05-21
 
 * moved terraform modules to external repo

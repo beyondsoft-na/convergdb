@@ -66,7 +66,6 @@ module ConvergDB
         clause('schema schemas') do |schema, schemas|
           TwoExp.new(schema, schemas)
         end
-        clause('') { || nil }
       end
 
       production(:schema) do
@@ -95,7 +94,6 @@ module ConvergDB
         clause('relation relations') do |relation, relations|
           TwoExp.new(relation, relations)
         end
-        clause('') { || nil }
       end
 
       production(:relation) do

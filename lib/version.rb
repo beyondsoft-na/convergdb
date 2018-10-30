@@ -16,7 +16,7 @@
 
 module ConvergDB
   # version number for this gem
-  VERSION = '0.0.6.7'
+  VERSION = '0.0.6.8'
   
   # commit associated with this version of convergdb
   TERRAFORM_MODULES_COMMIT_ID = 'a87e66ebec4f8be84584b414d409bf7f3ac78755'
