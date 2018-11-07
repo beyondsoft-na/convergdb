@@ -1,5 +1,9 @@
 ## Changelog
 
+### 0.0.6.9 2018-11-07
+
+* changed convergdb\_terraform commit ID to reflect SSE changes in convergdb\_bootstrap.
+
 ### 0.0.6.8 2018-10-30
 
 * fixed parser issue which degraded performance and required very large heap size
