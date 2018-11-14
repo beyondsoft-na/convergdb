@@ -120,12 +120,20 @@ def aws_api_based_diff(structure):
   convergdb_log("retrieving loaded files from the control table...")
   loaded = loaded_files(structure)
   convergdb_log("loaded objects: " + str(len(loaded)))
-
+  
+  # regex compiled for efficiency
+  folder_match = re.compile(r'\/$')
+  
   d = []
   for f in available:
     # uses dict lookup to check if the file has been loaded yet
     if loaded.has_key(f['key']):
       # file has been loaded
+      pass
+    elif folder_match.search(f['key']):
+      # this file is actually a folder coming through like an object
+      # we are skipping this because it will potentially double load
+      # data.
       pass
     else:
       # file needs to be loaded

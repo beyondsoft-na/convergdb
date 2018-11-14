@@ -4,7 +4,7 @@
 # repo and creating the zip file.
 
 # run integration tests
-pytest tests/*.py -vv
+./this_pytest tests/*.py -vv
 
 # sanitize
 rm -f  convergdb/*.pyc

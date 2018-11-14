@@ -1,5 +1,9 @@
 ## Changelog
 
+### 0.0.6.10 2018-11-14
+
+* python api based diff will ignore pathnames that end in a backslash, in order to handle edge cases where a folder appears as an object.
+
 ### 0.0.6.9 2018-11-07
 
 * changed convergdb\_terraform commit ID to reflect SSE changes in convergdb\_bootstrap.
