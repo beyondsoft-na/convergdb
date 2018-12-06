@@ -150,5 +150,52 @@ module ConvergDB
         raise "#{self.class} error #{m} value #{self.send(m)}" unless t == true
       end
     end
+    
+    def is_convergdb_env_var?(var)
+      var.match(/^CONVERGDB_.*/) ? true : false
+    end
+    
+    def strip_var_ref(var_ref)
+      var_ref.gsub('${env.', '').gsub('}', '')
+    end
+    
+    def convergdb_env_var(var)
+      if is_convergdb_env_var?(var)
+        if ENV.key?(var)
+          return ENV[var]
+        else
+          raise "environment variable #{var} does not exist."
+        end
+      else
+        raise "environment variable #{var} must be prefixed with CONVERGDB_"
+      end
+    end
+    
+    def env_vars_in_this_string(string)
+      return string.scan(/\$\{env\.\w+\}/).uniq
+    end
+
+    def apply_env_vars(input)
+      return input if input.nil?
+      tmp = input
+      env_vars_in_this_string(input).each do |env_var|
+        tmp.gsub!(
+          env_var,
+          convergdb_env_var(
+            strip_var_ref(env_var)
+          )
+        )
+      end
+      return tmp
+    end
+    
+    def apply_env_vars_to_attributes!(attributes)
+      attributes.each do |attribute|
+        self.send(
+          "#{attribute}=", 
+          apply_env_vars(self.send(attribute))
+        )
+      end
+    end
   end
 end

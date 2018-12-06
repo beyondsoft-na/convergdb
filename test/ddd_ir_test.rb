@@ -120,6 +120,101 @@ module ConvergDB
           t1.override_parent(:some_method)
         )
       end
+      
+      def test_is_convergdb_env_var?
+        t1 = BaseStructureTestable.new
+        [
+          ['CONVERGDB_GOOD_VAR', true],
+          ['convergdb_GOOD_VAR', false],
+          ['HOSTNAME', false]
+        ].each do |t|
+          assert t[1] == t1.is_convergdb_env_var?(t[0])
+        end
+      end
+      
+      def test_strip_var_ref
+        t1 = BaseStructureTestable.new
+        assert 'CONVERGDB_ENV_VAR' == t1.strip_var_ref(
+          '${env.CONVERGDB_ENV_VAR}'
+        )
+      end
+      
+      def test_convergdb_env_var
+        # looks up a variable prefixed with CONVERGDB_
+        t1 = BaseStructureTestable.new
+        ENV['CONVERGDB_env_var_1'] = '1'
+        assert '1' == t1.convergdb_env_var('CONVERGDB_env_var_1')
+        ENV['CONVERGDB_env_var_1'] = nil
+        
+        # makes sure that you can't pull non-CONVERGDB_ prefixed env vars
+        success = nil
+        begin
+          tmp = t1.convergdb_env_var('HOSTNAME')
+          success = true
+        rescue
+          success = false
+        end
+        assert false == success
+      end
+      
+      def test_env_vars_in_this_string
+        # test for any string that matches syntax
+        t1 = BaseStructureTestable.new
+        expected = [
+          '${env.CONVERGDB_1}',
+          '${env.CONVERGDB_2}',
+          '${env.HOSTNAME}'     # only needs to match syntax, not rules
+        ]
+        assert expected == t1.env_vars_in_this_string(
+          'hello_${env.CONVERGDB_1}_${env.CONVERGDB_2}_${env.HOSTNAME}'
+        )
+        
+        # test for uniqueness
+        assert ['${env.CONVERGDB_1}'] == t1.env_vars_in_this_string(
+          '${env.CONVERGDB_1}${env.CONVERGDB_1}${env.CONVERGDB_1}${env.CONVERGDB_1}'
+        )
+      end
+      
+      def test_apply_env_vars
+        t1 = BaseStructureTestable.new
+        
+        expected = "hello world"
+        
+        ENV['CONVERGDB_A'] = 'hello'
+        ENV['CONVERGDB_B'] = 'world'
+        
+        assert_equal(
+          expected,
+          t1.apply_env_vars(
+            '${env.CONVERGDB_A} ${env.CONVERGDB_B}'
+          ),
+          puts(t1.apply_env_vars(
+            '${env.CONVERGDB_A} ${env.CONVERGDB_B}'
+          ))
+        )
+        
+        ENV['CONVERGDB_1'] = nil
+        ENV['CONVERGDB_2'] = nil
+      end
+      
+      def test_apply_env_vars_to_attributes!
+        t1 = BaseStructureTestable.new
+        t1.some_method = '${env.CONVERGDB_A} ${env.CONVERGDB_B}'
+        expected = "hello world"
+        
+        ENV['CONVERGDB_A'] = 'hello'
+        ENV['CONVERGDB_B'] = 'world'
+        
+        t1.apply_env_vars_to_attributes!([:some_method])
+        
+        assert_equal(
+          expected,
+          t1.some_method
+        )
+        
+        ENV['CONVERGDB_1'] = nil
+        ENV['CONVERGDB_2'] = nil
+      end
     end
 
     class TestDDDTopLevel < BaseDDDIRTest
@@ -359,12 +454,37 @@ module ConvergDB
           raises_error?(t[:deployment], :resolve!)
         )
 
-#         # demonstrates that recursive resolve! took place
-#         # down to relation level.
-#         assert_equal(
-#           t[:deployment].region,
-#           t[:relation].region
-#         )
+        # demonstrates that recursive resolve! took place
+        # down to relation level.
+        assert_equal(
+          t[:deployment].environment,
+          t[:relation].environment
+        )
+        
+        # test that env vars can be substituted
+        t = tree_down_to(:athena, :deployment)
+        
+        ENV['CONVERGDB_SOME_BUCKET'] = 'hello'
+        t[:deployment].environment = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:deployment].domain_name = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:deployment].schema_name = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:deployment].service_role = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:deployment].script_bucket = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:deployment].temp_s3_location = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:deployment].source_relation_prefix = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:deployment].etl_job_name = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:deployment].resolve!
+
+        assert 'hello' == t[:deployment].environment
+        assert 'hello' == t[:deployment].domain_name
+        assert 'hello' == t[:deployment].schema_name
+        assert 'hello' == t[:deployment].service_role
+        assert 'hello' == t[:deployment].script_bucket
+        assert 'hello' == t[:deployment].temp_s3_location
+        assert 'hello' == t[:deployment].source_relation_prefix
+        assert 'hello' == t[:deployment].etl_job_name
+      
+        ENV['CONVERGDB_SOME_BUCKET'] = nil
       end
 
       def test_validate
@@ -506,6 +626,30 @@ module ConvergDB
           's3',
           t[:relation].inventory_source
         )
+        
+        # test that env vars can be substituted
+        t = tree_down_to(:athena, :relation)
+        
+        ENV['CONVERGDB_SOME_BUCKET'] = 'hello'
+        t[:relation].dsd = 'a.b.c'
+        t[:relation].domain_name = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:relation].schema_name = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:relation].relation_name = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:relation].service_role = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:relation].script_bucket = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:relation].temp_s3_location = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:relation].source_relation_prefix = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:relation].resolve!
+
+        assert 'hello' == t[:relation].domain_name
+        assert 'hello' == t[:relation].schema_name
+        assert 'hello' == t[:relation].relation_name
+        assert 'hello' == t[:relation].service_role
+        assert 'hello' == t[:relation].script_bucket
+        assert 'hello' == t[:relation].temp_s3_location
+        assert 'hello' == t[:relation].source_relation_prefix
+      
+        ENV['CONVERGDB_SOME_BUCKET'] = nil
       end
 
       def test_structure
@@ -745,10 +889,26 @@ module ConvergDB
         t[:relation].storage_bucket = 'bucket-name'
         t[:top_level].resolve!
 
-#         assert_equal(
-#           t[:deployment].region,
-#           t[:relation].region
-#         )
+        assert_equal(
+          t[:deployment].environment,
+          t[:relation].environment
+        )
+        
+        # test that env vars can be substituted
+        t = tree_down_to(:s3_source, :deployment)
+        
+        ENV['CONVERGDB_SOME_BUCKET'] = 'hello'
+        
+        t[:deployment].environment = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:deployment].domain_name = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:deployment].schema_name = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:deployment].resolve!
+        
+        assert 'hello' == t[:deployment].environment
+        assert 'hello' == t[:deployment].domain_name
+        assert 'hello' == t[:deployment].schema_name
+
+        ENV['CONVERGDB_SOME_BUCKET'] = nil
       end
 
       def test_structure
@@ -770,9 +930,20 @@ module ConvergDB
 
       def test_validate
         t = tree_down_to(:s3_source, :deployment)
+        raised_error = nil
+        err = nil
+        begin
+          t[:deployment].validate
+          raised_error = false
+        rescue => e
+          err = e
+          raised_error = true
+        end
+        
         assert_equal(
           false,
-          raises_error?(t[:deployment], :validate)
+          raised_error,
+          (err.message if err)
         )
 
 #        t[:deployment].region = 'us-west-2'
@@ -915,6 +1086,34 @@ module ConvergDB
           'this_database.this_table',
           t[:relation].streaming_inventory_table
         )
+
+        # test that env vars can be substituted
+        t = resolve_structure_base
+        
+        ENV['CONVERGDB_SOME_BUCKET'] = 'hello'
+        
+        t[:relation].domain_name = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:relation].schema_name = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:relation].relation_name = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:relation].storage_bucket = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:relation].inventory_table = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:relation].streaming_inventory_output_bucket = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:relation].streaming_inventory_table = "${env.CONVERGDB_SOME_BUCKET}"
+        t[:deployment].resolve!
+
+        assert_equal(
+          'hello',
+          t[:relation].domain_name,
+          t[:relation].domain_name
+        )
+        assert 'hello' == t[:relation].schema_name
+        assert 'hello' == t[:relation].relation_name
+        assert 'hello' == t[:relation].storage_bucket
+        assert 'hello' == t[:relation].inventory_table
+        assert 'hello' == t[:relation].streaming_inventory_output_bucket
+        assert 'hello' == t[:relation].streaming_inventory_table
+        
+        ENV['CONVERGDB_SOME_BUCKET'] = nil
       end
 
       def test_structure

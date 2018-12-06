@@ -1,5 +1,9 @@
 ## Changelog
 
+### 0.0.6.11 2018-11-29
+
+* functionality to accept environment variables in deployment file.
+
 ### 0.0.6.10 2018-11-14
 
 * python api based diff will ignore pathnames that end in a backslash, in order to handle edge cases where a folder appears as an object.

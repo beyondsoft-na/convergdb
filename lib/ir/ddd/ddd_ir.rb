@@ -91,6 +91,13 @@ module ConvergDB
 
       # resolves relations
       def resolve!
+        apply_env_vars_to_attributes!(
+          [
+            :environment,
+            :domain_name,
+            :schema_name
+          ]
+        )
         @relations.each(&:resolve!)
       end
 
@@ -210,6 +217,17 @@ module ConvergDB
 
       # resolves all of the attributes of this object
       def resolve!
+        apply_env_vars_to_attributes!(
+          [
+            :domain_name,
+            :schema_name,
+            :relation_name,
+            :storage_bucket,
+            :inventory_table,
+            :streaming_inventory_output_bucket,
+            :streaming_inventory_table
+          ]
+        )
         # @region = @parent.region
         @environment = @parent.environment
         @domain_name = override_parent(:domain_name)
@@ -461,6 +479,18 @@ module ConvergDB
       # resolves all of the attribute values in the downstream
       # relations.
       def resolve!
+        apply_env_vars_to_attributes!(
+          [
+            :environment,
+            :domain_name,
+            :schema_name,
+            :service_role,
+            :script_bucket,
+            :temp_s3_location,
+            :source_relation_prefix,
+            :etl_job_name
+          ]
+        )
         @script_bucket ||= '${var.admin_bucket}'
         # dpu and image defaults
         @etl_technology ||= 'aws_glue'
@@ -660,6 +690,18 @@ module ConvergDB
 
       # resolves all of the attributes of this object
       def resolve!
+        apply_env_vars_to_attributes!(
+          [
+            :domain_name,
+            :schema_name,
+            :relation_name,
+            :service_role,
+            :script_bucket,
+            :temp_s3_location,
+            :source_relation_prefix,
+            :etl_job_name
+          ]
+        )
         @environment = @parent.environment
         @domain_name = override_parent(:domain_name)
         @schema_name = override_parent(:schema_name)
