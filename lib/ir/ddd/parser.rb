@@ -50,7 +50,7 @@ module ConvergDB
         clause('deploy_body deploy_bodies') do |deploy_body, deploy_bodies|
           TwoExp.new(deploy_body, deploy_bodies)
         end
-        clause('') { || nil }
+        #clause('') { || nil }
       end
 
       production(:deploy_body) do

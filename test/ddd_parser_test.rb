@@ -16,28 +16,28 @@ module ConvergDB
       def token_test_cases
         [
           # each hash is a test case with a str: and desired_tokens:
-          {
-            str: %{athena "ns" {
-                }},
-            desired_tokens: [
-              "RIDENT(athena)",
-              "IDENT(\"ns\")",
-              "LBRACE",
-              "RBRACE",
-              "EOS"
-            ]
-          },
-          {
-            str: %{s3_source "ns" {
-                }},
-            desired_tokens: [
-              "RIDENT(s3_source)",
-              "IDENT(\"ns\")",
-              "LBRACE",
-              "RBRACE",
-              "EOS"
-            ]
-          },
+          # {
+          #   str: %{athena "ns" {
+          #       }},
+          #   desired_tokens: [
+          #     "RIDENT(athena)",
+          #     "IDENT(\"ns\")",
+          #     "LBRACE",
+          #     "RBRACE",
+          #     "EOS"
+          #   ]
+          # },
+          # {
+          #   str: %{s3_source "ns" {
+          #       }},
+          #   desired_tokens: [
+          #     "RIDENT(s3_source)",
+          #     "IDENT(\"ns\")",
+          #     "LBRACE",
+          #     "RBRACE",
+          #     "EOS"
+          #   ]
+          # },
           {
             str: %{
               region = "us-west-2"
@@ -151,20 +151,20 @@ module ConvergDB
       def parser_test_cases
         [
           # each hash is a test case with a str: and desired_ast:
-          {
-            str: %{athena "ns" {
-                }},
-            desired_ast: [
-              "[:new_deployment, :athena, \"ns\"]"
-            ]
-          },
-          {
-            str: %{s3_source "ns" {
-                }},
-            desired_ast: [
-              "[:new_deployment, :s3_source, \"ns\"]"
-            ]
-          },
+          # {
+          #   str: %{athena "ns" {
+          #       }},
+          #   desired_ast: [
+          #     "[:new_deployment, :athena, \"ns\"]"
+          #   ]
+          # },
+          # {
+          #   str: %{s3_source "ns" {
+          #       }},
+          #   desired_ast: [
+          #     "[:new_deployment, :s3_source, \"ns\"]"
+          #   ]
+          # },
           {
             str: %{athena "ns" {
                   region = "us-west-2"

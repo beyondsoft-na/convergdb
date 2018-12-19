@@ -9,7 +9,7 @@ def cores_per_dpu(dpu):
 
 def memory_per_dpu(dpu):
   return dpu * (10**3)
-  
+
 # creates a list of tuples representing the list slice ranges
 # for each chunk.
 def split_indices(count, grouping):
@@ -56,8 +56,15 @@ def coalesce_partition_target(core_count, estimated_source_bytes):
   target_compression_factor = 3
   target_file_size = 256*(1024**2)
   max_partitions = core_count * max_partitions_per_core
-  partition_count = round(float(estimated_source_bytes) / float(target_compression_factor) / float(target_file_size))
-  partition_count = min([max([partition_count, 1]), max_partitions])
+  partition_count = round(
+    float(estimated_source_bytes) / float(target_compression_factor) / float(target_file_size)
+  )
+  partition_count = min(
+    [
+      max([partition_count, 1]),
+      max_partitions
+    ]
+  )
   convergdb_log("calculated partition target: " + str(partition_count))
   return partition_count
 

@@ -46,7 +46,7 @@ Please visit https://github.com/beyondsoft-na/convergdb to see licenses
 for the libraries utilized in ConvergDB.
 }
       end
-    end    
+    end
 
     # action to generate a ConvergDB deployment
     class Generate
@@ -63,11 +63,18 @@ for the libraries utilized in ConvergDB.
         dsd_ir = ConvergDB::DSD::IR.new
         begin
           puts("parsing schema files...")
-          dsd_tmp = dsd_ir.get_ir(
-            dsd_ir.get_ast(
-              dsd_ir.get_token(dsd_files)
+          dsd_ast = []
+          file_arr = []
+          dsd_files.each { |file|
+            file_arr << file
+            dsd_ast.concat (
+              dsd_ir.get_ast(
+                dsd_ir.get_token(file_arr)
+              )
             )
-          ).top_level
+            file_arr = []
+          }
+          dsd_tmp = dsd_ir.get_ir(dsd_ast).top_level
         rescue => e
           puts "dsd parser error"
           raise e

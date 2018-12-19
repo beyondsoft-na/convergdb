@@ -1,5 +1,13 @@
 ## Changelog
 
+### 0.0.6.13 2018-12-18
+
+* fixed convergdb.zip
+
+### 0.0.6.12 2018-12-18
+
+* broke schema parser into multiple chunks instead of parsing all files as one
+
 ### 0.0.6.11 2018-11-29
 
 * functionality to accept environment variables in deployment file.
