@@ -170,6 +170,8 @@ module ConvergDB
               end
             end
           end
+        else
+          puts("no glue client")
         end
         return jobs
       end

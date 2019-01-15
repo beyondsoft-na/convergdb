@@ -168,12 +168,16 @@ module ConvergDB
       # this is the builder to be passed to all generators
       # @return [ConvergDB::Deployment::TerraformBuilder]
       attr_accessor :terraform_builder
-
+      
+      attr_accessor :aws_clients
+      
       def initialize(structure)
         @structure = structure
         @generators = []
         @terraform_builder = ConvergDB::Deployment::TerraformBuilder.new
-        @aws_clients ||= aws_clients
+        log_warning("unable to create AWS client connections") do
+          @aws_clients = aws_clients
+        end
       end
 
       # @return [Hash]
@@ -219,8 +223,8 @@ module ConvergDB
 
         # creates the generator array from the primary IR
         @generators = create_generators(@structure)
-
-        output_diff_messages(@generators)
+        
+        output_diff_messages(@generators) unless @aws_clients.nil?
 
         # call the generate method of every generator
         @generators.each do |g|

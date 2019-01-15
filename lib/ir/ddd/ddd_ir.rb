@@ -634,6 +634,7 @@ module ConvergDB
       attr_accessor :etl_job_name
       attr_accessor :etl_job_schedule
       attr_accessor :etl_job_dpu
+      attr_accessor :spark_partition_count
 
       # fargate container handling
       attr_accessor :etl_technology
@@ -670,7 +671,8 @@ module ConvergDB
           etl_job_dpu: @etl_job_dpu,
           etl_technology: @etl_technology,
           etl_docker_image: @etl_docker_image,
-          etl_docker_image_digest: @etl_docker_image_digest
+          etl_docker_image_digest: @etl_docker_image_digest,
+          spark_partition_count: @spark_partition_count
         }
       end
 
@@ -684,7 +686,8 @@ module ConvergDB
           storage_bucket: @storage_bucket,
           state_bucket: @state_bucket,
           storage_format: @storage_format,
-          etl_job_name: @etl_job_name
+          etl_job_name: @etl_job_name,
+          spark_partition_count: @spark_partition_count
         }
       end
 
@@ -713,7 +716,7 @@ module ConvergDB
         @temp_s3_location = override_parent(:temp_s3_location)
         @storage_format = override_parent(:storage_format)
         @source_relation_prefix = override_parent(:source_relation_prefix)
-
+        
         if @use_inventory
           puts('athena stanza use_inventory attribute is deprecated... please use inventory_source = "s3"')
         end
@@ -742,6 +745,8 @@ module ConvergDB
         @etl_job_name = @parent.etl_job_name
         @etl_job_schedule = @parent.etl_job_schedule
         @etl_job_dpu = @parent.etl_job_dpu
+        
+        @spark_partition_count = @spark_partition_count.to_i if @spark_partition_count
 
         @etl_technology = @parent.etl_technology
         @etl_docker_image = @parent.etl_docker_image

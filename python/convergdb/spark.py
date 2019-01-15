@@ -36,14 +36,15 @@ def nestable_source_schema(structure):
 
 # creates all of the functional rdd/dataframe layers then
 # triggers the actual data transformation.
-def data_load(sql_context, structure, s3a_paths, source_map_func, batch_id, total_bytes, file_count, dpu):
+def data_load(sql_context, structure, s3a_paths, source_map_func, batch_id, total_bytes, file_count, dpu, spark_partition_count):
   convergdb_log("starting data load for " + structure["full_relation_name"])
   st = time.time()
 
   # determine the number of spark partitions to use for this batch.
   spark_partitions = calculate_spark_partitions(
     total_bytes,
-    dpu
+    dpu,
+    spark_partition_count
   )
 
   # create a data frame from the source data.

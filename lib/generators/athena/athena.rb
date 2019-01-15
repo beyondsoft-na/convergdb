@@ -82,6 +82,8 @@ module ConvergDB
               comparable(@structure)
             )
           )
+        else
+          puts("skipping comparison to live infrastructure because AWS client connection undefined")
         end
       end
    

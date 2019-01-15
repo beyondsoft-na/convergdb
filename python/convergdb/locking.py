@@ -6,11 +6,11 @@ import uuid
 from convergdb_logging import *
 from functools import wraps
 
-dynamodb = None
-if os.environ.has_key('AWS_GLUE_REGION'):
-  dynamodb = boto3.client('dynamodb',region_name=os.environ['AWS_GLUE_REGION'])
-else:
-  dynamodb = boto3.client('dynamodb')
+def dynamodb_client():
+  if os.environ.has_key('AWS_GLUE_REGION'):
+    return boto3.client('dynamodb', region_name=os.environ['AWS_GLUE_REGION'])
+  else:
+    return boto3.client('dynamodb')
 
 lock_table = os.environ['LOCK_TABLE']
 lock_id = os.environ['LOCK_ID']
@@ -32,7 +32,7 @@ def acquire_lock(owner_id):
     # Will raise an exception if the item already exists.
     # Otherwise, catches 'AccessDeniedException' and retry
     convergdb_log("Attempting conditional put: lock_id: [" + lock_id  + "], owner_id: [" + owner_id + "]")
-    dynamodb.put_item(**put_params)
+    dynamodb_client().put_item(**put_params)
     convergdb_log("Lock acquired: [" + lock_id + "]")
 
 
@@ -54,7 +54,7 @@ def release_lock(owner_id):
 
     # No exceptions raised if condition is not met.
     convergdb_log("Attempting conditional delete: lock_id: [" + lock_id  + "], owner_id: [" + owner_id + "]")
-    dynamodb.delete_item(**delete_params)
+    dynamodb_client().delete_item(**delete_params)
     convergdb_log("Lock released: [" + lock_id + "]")
 
 def lock(function):

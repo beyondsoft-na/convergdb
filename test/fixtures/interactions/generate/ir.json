@@ -97,6 +97,7 @@
     "etl_technology" : "aws_glue",
     "etl_docker_image" : null,
     "etl_docker_image_digest" : null,
+    "spark_partition_count" : null,
     "attributes": [
       {
         "name": "item_number",

@@ -112,9 +112,12 @@ def load_batch(sql_context, structure, diff, source_map_func, dpu):
         s3a_list,
         None,
         this_batch_id,
+        
+        # the following are used in calculating the number of spark partitions
         bytes_to_load_uncompressed_estimate,
         len(diff),
-        dpu
+        dpu, # None unless this is an aws_glue job
+        structure['spark_partition_count'] # override if not None
       )
 
       # refresh partitions

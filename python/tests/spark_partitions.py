@@ -61,20 +61,30 @@ def test_calculate_spark_partitions():
   expected = 8
   assert expected == convergdb.calculate_spark_partitions(
     30*(1024**3),
-    1
+    1,
+    None
   )
   
   expected = 16
   assert expected == convergdb.calculate_spark_partitions(
     30*(1024**3),
-    2
+    2,
+    None
   )
   
   expected = 2
   assert expected == convergdb.calculate_spark_partitions(
     30*(1024**3),
+    None,
     None
   ) 
+
+  expected = 400
+  assert expected == convergdb.calculate_spark_partitions(
+    30*(1024**3),
+    2,
+    400
+  )
 
 def test_available_memory_in_this_cluster():
   expected = 16 * (1024**3) * 0.25

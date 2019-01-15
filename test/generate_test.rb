@@ -97,9 +97,11 @@ module ConvergDB
       end
 
       def master_generator
-        ConvergDB::Generators::MasterGenerator.new(
+        t = ConvergDB::Generators::MasterGenerator.new(
           primary_ir_structure
         )
+        t.aws_clients = nil
+        t
       end
 
       def generators

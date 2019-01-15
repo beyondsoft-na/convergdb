@@ -1,5 +1,10 @@
 ## Changelog
 
+### 0.0.6.14 2019-01-14
+
+* integrated handling for runtime when AWS connection can not be created.
+* add `spark_partition_count` attribute for athena relations to allow for manual override of spark partitions in glue cluster. 
+
 ### 0.0.6.13 2018-12-18
 
 * fixed convergdb.zip

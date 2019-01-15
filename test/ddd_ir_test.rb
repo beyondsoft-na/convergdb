@@ -536,10 +536,11 @@ module ConvergDB
         t[:relation].storage_bucket = 'storage_bucket'
         t[:relation].state_bucket = 'state_bucket'
         t[:relation].storage_format = 'parquet'
-
+        t[:relation].spark_partition_count = 22
+        
         # etl_job_name is inherited from the parent deployment
         t[:deployment].etl_job_name = 'nightly_batch'
-
+        
         # make sure everything is ready to go
         t[:relation].resolve!
 
@@ -550,7 +551,8 @@ module ConvergDB
             storage_bucket: 'storage_bucket',
             state_bucket: 'state_bucket',
             storage_format: 'parquet',
-            etl_job_name: 'nightly_batch'
+            etl_job_name: 'nightly_batch',
+            spark_partition_count: 22
           },
           t[:relation].comparable
         )
@@ -703,7 +705,8 @@ module ConvergDB
             etl_job_dpu: 22,
             etl_technology: nil, # set in resolved parent
             etl_docker_image: nil, # set in resolved parent
-            etl_docker_image_digest: nil # set in resolved parent
+            etl_docker_image_digest: nil, # set in resolved parent
+            spark_partition_count: nil
           },
           t[:relation].structure
         )

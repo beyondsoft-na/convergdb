@@ -68,20 +68,26 @@ def coalesce_partition_target(core_count, estimated_source_bytes):
   convergdb_log("calculated partition target: " + str(partition_count))
   return partition_count
 
-def calculate_spark_partitions(total_bytes, dpu):
+def calculate_spark_partitions(total_bytes, dpu, spark_partition_count):
   partitions = None
   if dpu:
     convergdb_log("AWS Glue DPU from current run_id: " + str(dpu))
-    partitions = coalesce_partition_target(
-      cores_per_dpu(dpu),
-      total_bytes
-    )
+    if spark_partition_count:
+      convergdb_log("applying spark_partition_count override provided in convergdb deployment definition")
+      partitions = spark_partition_count
+    else:
+      convergdb_log("calculating partitions based on dpu and data size")
+      partitions = coalesce_partition_target(
+        cores_per_dpu(dpu),
+        total_bytes
+      )
   else:
     convergdb_log("assuming single CPU core in AWS Fargate")
     partitions = coalesce_partition_target(
       1,
       total_bytes
     )
+  convergdb_log("job will be run with " + str(partitions) + " partitions")
   return int(partitions)
 
 def available_memory_in_this_cluster(dpu):
