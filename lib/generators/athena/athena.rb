@@ -221,7 +221,7 @@ module ConvergDB
                 expression: a[:comment]
               }
             end,
-            partitions: table[:partition_keys].map do |a|
+            partitions: (table[:partition_keys] || [] ).map do |a|
               {
                 name: a[:name],
                 data_type: a[:type],
@@ -276,31 +276,12 @@ module ConvergDB
       # @return [Hash]
       def aws_glue_database_module_params(structure)
         {
-          resource_id: 'convergdb_athena_databases_stack',
+          resource_id: @terraform_builder.database_module_name(athena_database_name(structure)),
           region: '${var.region}',
-          athena_database_tf_module_name: athena_database_tf_module_name,
-          structure: cfn_database_resource(structure)
+          structure: {
+            database_name: athena_database_name(structure)
+          }
         }
-      end
-
-      # @param [String] input string to use in md5
-      # @param [Fixnum] base mask for bits to use
-      # @return [String]
-      def aws_glue_table_module_resource_id_bucket(input, base = 127)
-        md5 = Digest::MD5.new
-        # mask the least sig bytes based upon the base.. which
-        # should be something like 127
-        return (md5.hexdigest(input)[0..1].hex & base).to_s(16)
-      end
-
-      # returns a cf stack name that is appended with a 2 digit hex value
-      # derived from the md5 of the input string. this keeps the table
-      # in the same cf stack, preventing unwanted rebuilds. this functionality
-      # will go away once terraform supports glue table resources directly.
-      # @param [Hash] input
-      # @return [String]
-      def aws_glue_table_module_resource_id(input)
-        return "relations-#{aws_glue_table_module_resource_id_bucket(input)}"
       end
 
       # parameters to be passed to the aws_glue_table_module
@@ -310,21 +291,14 @@ module ConvergDB
       # @return [Hash]
       def aws_glue_table_module_params(structure, terraform_builder)
         {
-          resource_id: aws_glue_table_module_resource_id(
-            structure[:full_relation_name]
-          ),
+          resource_id: structure[:full_relation_name],
           region: '${var.region}',
           athena_relation_module_name: terraform_builder.to_underscore(
             structure[:full_relation_name]
           ),
-          structure: cfn_table_resource(structure),
+          structure: table_parameters(structure),
           working_path: structure[:working_path]
         }
-      end
-
-      # @return [String]
-      def athena_database_tf_module_name
-        'convergdb_athena_databases_stack'
       end
 
       # creates necessary files and folders for use with terraform
@@ -386,9 +360,7 @@ module ConvergDB
           convergdb_state_bucket: structure[:state_bucket] || '',
           convergdb_storage_format: structure[:storage_format],
           convergdb_etl_job_name: structure[:etl_job_name] || '',
-          convergdb_deployment_id: %(${deployment_id}),
-          convergdb_database_cf_id:
-            %(${database_stack_id})
+          convergdb_deployment_id: %(${var.deployment_id})
         }
       end
 
@@ -454,99 +426,50 @@ module ConvergDB
         end
       end
 
-      # this bad boy is appended to the Resources section of the Cloudformation
-      # stack used to deploy all of the tables in the athena/glue catalog. See
-      # the AWS documentation for the Glue API for more information on the
-      # structure and meaning of these parameters.
-      # @param [Hash] structure
-      # @return [Hash]
-      def cfn_table_resource(structure)
+      def terraform_column_attributes(col)
         {
-          # hashed from the :full_relation_name to avoid conflicts
-          %(convergdbTable#{
-            Digest::SHA256.hexdigest(
-              structure[:full_relation_name]
-            )}) => {
-            'Type' => 'AWS::Glue::Table',
-            'Properties' => {
-              # terraform will populate this for you based upon the aws account
-              'CatalogId' => '${aws_account_id}',
-              'DatabaseName' => athena_database_name(structure),
-              'TableInput' => {
-                'StorageDescriptor' => {
-                  'OutputFormat' => output_format(structure[:storage_format]),
-                  'SortColumns' => [],
-                  'InputFormat' => input_format(structure[:storage_format]),
-                  'SerdeInfo' => {
-                    'SerializationLibrary' => serialization_library(
-                      structure[:storage_format]
-                    ),
-                    'Parameters' => {
-                      'serialization.format' => '1'
-                    }
-                  },
-                  'BucketColumns' => [],
-                  'Parameters' => {},
-                  'SkewedInfo' => {
-                    'SkewedColumnNames' => [],
-                    'SkewedColumnValueLocationMaps' => {},
-                    'SkewedColumnValues' => []
-                  },
-                  'Location' => s3_storage_location(structure),
-                  'NumberOfBuckets' => -1,
-                  'StoredAsSubDirectories' => false,
-                  'Columns' => non_partition_attributes(structure).map do |a|
-                    {
-                      'Name' => a[:name],
-                      'Type' => athena_data_type(a[:data_type]),
-                      'Comment' => "#{Digest::MD5.new.hexdigest(a[:expression].to_s)}_#{Digest::MD5.new.hexdigest(a[:data_type].to_s)}" || ''
-                    }
-                  end,
-                  'Compressed' => false
-                },
-                'PartitionKeys' => partition_attributes(structure).map do |a|
-                    {
-                      'Name' => a[:name],
-                      'Type' => athena_data_type(a[:data_type]),
-                      'Comment' => "#{Digest::MD5.new.hexdigest(a[:expression].to_s)}_#{Digest::MD5.new.hexdigest(a[:data_type].to_s)}" || ''
-                    }
-                  end,
-                'Name' => table_name(structure[:full_relation_name]),
-                'Parameters' => tblproperties(structure),
-                'TableType' => 'EXTERNAL_TABLE',
-                'Owner' => 'hadoop',
-                'Retention' => 0
-              }
-            }
-          }
+          'name' => col[:name],
+          'type' => athena_data_type(col[:data_type]),
+          'comment' => "#{Digest::MD5.new.hexdigest(col[:expression].to_s)}_#{Digest::MD5.new.hexdigest(col[:data_type].to_s)}" || ''
         }
       end
-
-      # creates a database resource for use inside a cloudformation template.
-      # see the AWS documentation for the Glue API for more info.
-      # @param [Hash] structure
-      # @return [Hash]
-      def cfn_database_resource(structure)
+      
+      def table_parameters(structure)
         {
-          # hashed from the :full_relation_name to avoid conflicts
-          %(convergdbDatabase#{
-            Digest::SHA256.hexdigest(
-              athena_database_name(structure)
-            )}) =>
-          {
-            'Type' => 'AWS::Glue::Database',
-            'Properties' => {
-              # terraform will populate this for you based upon the aws account
-              'CatalogId' => '${data.aws_caller_identity.current.account_id}',
-              'DatabaseInput' => {
-                'Name' => athena_database_name(structure),
-                'Parameters' => {
-                  'convergdb_deployment_id' =>
-                    '${var.deployment_id}'
-                }
-              }
-            }
-          }
+          # database name uses module output to force
+          database_name: "${module.#{@terraform_builder.database_module_name(athena_database_name(structure))}.database_name}",
+          table_name: table_name(structure[:full_relation_name]),
+          columns: non_partition_attributes(structure).map { |a| terraform_column_attributes(a) },
+          location: s3_storage_location(structure),
+          input_format: input_format(structure[:storage_format]),
+          output_format: output_format(structure[:storage_format]),
+          compressed: false,
+          number_of_buckets: -1,
+          ser_de_info_name: structure[:storage_format],
+          ser_de_info_serialization_library: serialization_library(
+            structure[:storage_format]
+          ),
+          bucket_columns: [],
+          sort_columns: [],
+          skewed_column_names: [],
+          skewed_column_value_location_maps: {},
+          skewed_column_values: [],
+          stored_as_sub_directories: false,
+          partition_keys: partition_attributes(structure).map  { |a| terraform_column_attributes(a) },
+          classification: tblproperties(structure)[:classification],
+          convergdb_full_relation_name: tblproperties(structure)[:convergdb_full_relation_name],
+          convergdb_dsd: tblproperties(structure)[:convergdb_dsd],
+          convergdb_storage_bucket: tblproperties(structure)[:convergdb_storage_bucket],
+          convergdb_state_bucket: tblproperties(structure)[:convergdb_state_bucket],
+          convergdb_storage_format: tblproperties(structure)[:convergdb_storage_format],
+          convergdb_etl_job_name: tblproperties(structure)[:convergdb_etl_job_name],
+          convergdb_deployment_id: tblproperties(structure)[:convergdb_deployment_id]
+        }
+      end
+      
+      def database_parameters(structure)
+        {
+          database_name: athena_database_name(structure)
         }
       end
     end

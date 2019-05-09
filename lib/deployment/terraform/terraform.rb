@@ -126,45 +126,87 @@ module ConvergDB
           raise "#{self.class} error #{m} : #{send(m)}" unless t == true
         end
       end
+      
+      def database_module_name(database_name)
+        "database_#{Digest::MD5.new.hexdigest(database_name)}"
+      end
+
+      def tf_hcl
+        module_structure_to_hcl(structure)
+      end
+      
+      def module_structure_to_hcl(s)
+        ret = []
+        ret << %{module "#{s[:structure][:module].keys.first.to_s}" \{}
+        s[:structure][:module][s[:structure][:module].keys.first.to_s].keys.each do |k|
+          ret << "  #{k.to_s} = #{value_to_hcl(s[:structure][:module][s[:structure][:module].keys.first.to_s][k])}"
+        end
+        ret << '}'
+        ret.join("\n")
+      end
+      
+      def value_to_hcl(v)
+        case 
+          when v.class == Hash then return hash_to_hcl(v)
+          when v.class == Array then return array_to_hcl(v)
+          when v.class == String then return "#{34.chr}#{v}#{34.chr}"
+          else return "#{34.chr}#{v.to_s}#{34.chr}"
+        end
+      end
+      
+      def hash_to_hcl(h)
+        ret = []
+        h.keys.each do |k|
+          ret << "#{k.to_s} = #{value_to_hcl(h[k])}" if value_to_hcl(h[k]).to_s != ''
+        end
+        return "{#{ret.join(',')}}"
+      end
+      
+      def array_to_hcl(a)
+        %{[#{a.map { |i| value_to_hcl(i).to_s }.join(',')}]}
+      end
     end
 
     # handles the creation of glue tables by way of a cf stack.
-    class AWSGlueTablesModule < BaseTerraform
+    class AWSGlueTableModule < BaseTerraform
       attr_accessor :region
       attr_accessor :source
-      attr_accessor :stack
-      attr_accessor :stack_name
-      attr_accessor :local_stack_file_path
-      attr_accessor :local_stack_file_relative_path
+
+      attr_accessor :database_name
+      attr_accessor :table_name
+      attr_accessor :columns
+      attr_accessor :location
+      attr_accessor :input_format
+      attr_accessor :output_format
+      attr_accessor :compressed
+      attr_accessor :number_of_buckets
+      attr_accessor :ser_de_info_name
+      attr_accessor :ser_de_info_serialization_library
+      attr_accessor :bucket_columns
+      attr_accessor :sort_columns
+      attr_accessor :skewed_column_names
+      attr_accessor :skewed_column_value_location_maps
+      attr_accessor :skewed_column_values
+      attr_accessor :stored_as_sub_directories
+      attr_accessor :partition_keys
+      attr_accessor :classification
+      attr_accessor :convergdb_full_relation_name
+      attr_accessor :convergdb_dsd
+      attr_accessor :convergdb_storage_bucket
+      attr_accessor :convergdb_state_bucket
+      attr_accessor :convergdb_storage_format
+      attr_accessor :convergdb_etl_job_name
+      attr_accessor :convergdb_deployment_id
       
       # @param [Hash] params
       def initialize(params)
         @resource_id = to_underscore(params[:resource_id])
+        @source = ConvergDB::TERRAFORM_MODULES[:aws_glue_table]
         @region = params[:region]
-        @source = ConvergDB::TERRAFORM_MODULES[:aws_athena_relations]
-        @local_stack_file_path =
-          "#{params[:working_path]}/terraform/cloudformation/#{params[:resource_id]}.json"
-        @local_stack_file_relative_path =
-          "./cloudformation/#{params[:resource_id]}.json"
-        @stack = initialize_stack
-        @stack_name = params[:resource_id]
-      end
-
-      # values with which to initialize the cf stack
-      # @return [Hash]
-      def initialize_stack
-        {
-          'AWSTemplateFormatVersion' => '2010-09-09',
-          'Description' => 'Create ConvergDB tables in Glue catalog',
-          'Resources' => {}
-        }
-      end
-
-      # appends cf hash structure to the stack. this is performed once
-      # for each table that is managed by the stack.
-      # @param [Hash] structure
-      def append_to_stack!(structure)
-        @stack['Resources'].merge!(structure)
+        # there are many so let's automate this...
+        params[:structure].keys.each do |k|
+          self.send("#{k}=", params[:structure][k])
+        end
       end
 
       # @return [Hash]
@@ -174,42 +216,43 @@ module ConvergDB
         }
       end
 
-      # @param [String] path
-      # @param [Hash] stack cf stack for output as json
-      def stack_to_file!(path, stack)
-        # make sure the directory exists
-        FileUtils.mkdir_p(File.dirname(path))
-
-        File.open(path, 'w') do |f|
-          f.puts(
-            stack.to_json
-          )
-        end
-      end
-
       # @return [Hash]
       def structure
-        stack_to_file!(
-          @local_stack_file_path,
-          @stack
-        )
-
         {
           resource_id: @resource_id,
-          resource_type: :aws_glue_tables_module,
+          resource_type: :aws_glue_table_module,
           structure: {
             module: {
               @resource_id => {
                 source: @source,
-                region: @region,
-                stack_name: @stack_name,
-                deployment_id: %(${var.deployment_id}),
-                local_stack_file_path: @local_stack_file_relative_path,
-                s3_stack_key: %{${var.deployment_id}/cloudformation/#{@stack_name}_${var.deployment_id}.json},
-                admin_bucket: %{${var.admin_bucket}}, # to pass downstream into the module
-                data_bucket: %{${var.data_bucket}},    # to pass downstream into the module
-                aws_account_id: '${data.aws_caller_identity.current.account_id}',
-                database_stack_id: "${module.convergdb_athena_databases_stack.database_stack_id}"
+                # region: @region,
+                # deployment_id: %(${var.deployment_id}),
+
+                database_name: @database_name,
+                table_name: @table_name,
+                columns: @columns,
+                location: @location,
+                input_format: @input_format,
+                output_format: @output_format,
+                compressed: @compressed,
+                number_of_buckets: @number_of_buckets,
+                ser_de_info_name: @ser_de_info_name,
+                ser_de_info_serialization_library: @ser_de_info_serialization_library,
+                bucket_columns: @bucket_columns,
+                sort_columns: @sort_columns,
+                skewed_column_names: @skewed_column_names,
+                skewed_column_value_location_maps: @skewed_column_value_location_maps,
+                skewed_column_values: @skewed_column_values,
+                stored_as_sub_directories: @stored_as_sub_directories,
+                partition_keys: @partition_keys,
+                classification: @classification,
+                convergdb_full_relation_name: @convergdb_full_relation_name,
+                convergdb_dsd: @convergdb_dsd,
+                convergdb_storage_bucket: @convergdb_storage_bucket,
+                convergdb_state_bucket: @convergdb_state_bucket,
+                convergdb_storage_format: @convergdb_storage_format ,
+                convergdb_etl_job_name: @convergdb_etl_job_name,
+                convergdb_deployment_id: @convergdb_deployment_id
               }
             }
           }
@@ -222,29 +265,14 @@ module ConvergDB
     class AWSGlueDatabaseModule < BaseTerraform
       attr_accessor :region
       attr_accessor :source
-      attr_accessor :stack
+      attr_accessor :database_name
 
       # @param [Hash] params
       def initialize(params)
         @resource_id = to_underscore(params[:resource_id])
         @region = params[:region]
-        @source = ConvergDB::TERRAFORM_MODULES[:aws_athena_database]
-        @stack = initialize_stack
-      end
-
-      # initializes the stack object
-      def initialize_stack
-        {
-          'AWSTemplateFormatVersion' => '2010-09-09',
-          'Description' => 'Create ConvergDB databases in Glue catalog',
-          'Resources' => {}
-        }
-      end
-
-      # appends cf hash structure to the stack
-      # @param [Hash] structure
-      def append_to_stack!(structure)
-        @stack['Resources'].merge!(structure)
+        @source = ConvergDB::TERRAFORM_MODULES[:aws_glue_database]
+        @database_name = params[:structure][:database_name]
       end
 
       # @return [Hash]
@@ -263,8 +291,8 @@ module ConvergDB
             module: {
               @resource_id => {
                 source: @source,
-                region: '${var.region}',
-                stack: @stack.to_json,
+                # region: '${var.region}',
+                database_name: @database_name,
                 deployment_id: %(${var.deployment_id})
               }
             }
@@ -520,34 +548,24 @@ module ConvergDB
         nil
       end
 
-      # idempotently appends a AWSGlueTablesModule to the resources array.
+      # idempotently appends a AWSGlueTableModule to the resources array.
       # after creation... the table is appended to the stack.
       # @param [Hash] params
       def aws_glue_table_module!(params)
-        resource_id = to_underscore(params[:resource_id])
-        unless resource_id_exists?(resource_id)
-          c = AWSGlueTablesModule.new(params)
+        unless resource_id_exists?(params[:resource_id])
+          c = AWSGlueTableModule.new(params)
           @resources << c
         end
-
-        resource_by_id(resource_id).append_to_stack!(
-          params[:structure]
-        )
       end
 
       # idempotently appends a AWSGlueDatabaseModule to the resources array.
       # after creation... the database is appended to the stack.
       # @param [Hash] params
       def aws_glue_database_module!(params)
-        resource_id = params[:resource_id]
-        unless resource_id_exists?(resource_id)
+        unless resource_id_exists?(params[:resource_id])
           c = AWSGlueDatabaseModule.new(params)
           @resources << c
         end
-
-        resource_by_id(resource_id).append_to_stack!(
-          params[:structure]
-        )
       end
 
       # appends a AWSGlueETLJobModule to the resources array.

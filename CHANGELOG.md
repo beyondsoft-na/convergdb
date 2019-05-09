@@ -1,33 +1,39 @@
 ## Changelog
 
+### 0.0.6.16 2019-05-07
+
+* Fixed support for AWS KMS keys in fargate spark job.
+* Replaced legacy Cloudformation based management of AWS Glue catalog objects with native Terraform resources.
+* Replaced legacy `msck repair table` for partition discovery with significantly faster boto3 based approach.
+
 ### 0.0.6.14 2019-01-14
 
-* integrated handling for runtime when AWS connection can not be created.
-* add `spark_partition_count` attribute for athena relations to allow for manual override of spark partitions in glue cluster. 
+* Integrated handling for runtime when AWS connection can not be created.
+* Add `spark_partition_count` attribute for athena relations to allow for manual override of spark partitions in glue cluster. 
 
 ### 0.0.6.13 2018-12-18
 
-* fixed convergdb.zip
+* Fixed convergdb.zip
 
 ### 0.0.6.12 2018-12-18
 
-* broke schema parser into multiple chunks instead of parsing all files as one
+* Broke schema parser into multiple chunks instead of parsing all files as one
 
 ### 0.0.6.11 2018-11-29
 
-* functionality to accept environment variables in deployment file.
+* Functionality to accept environment variables in deployment file.
 
 ### 0.0.6.10 2018-11-14
 
-* python api based diff will ignore pathnames that end in a backslash, in order to handle edge cases where a folder appears as an object.
+* Python api based diff will ignore pathnames that end in a backslash, in order to handle edge cases where a folder appears as an object.
 
 ### 0.0.6.9 2018-11-07
 
-* changed convergdb\_terraform commit ID to reflect SSE changes in convergdb\_bootstrap.
+* Changed convergdb\_terraform commit ID to reflect SSE changes in convergdb\_bootstrap.
 
 ### 0.0.6.8 2018-10-30
 
-* fixed parser issue which degraded performance and required very large heap size
+* Fixed parser issue which degraded performance and required very large heap size
 
 ### 0.0.6.7 2018-05-21
 

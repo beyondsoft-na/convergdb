@@ -201,22 +201,49 @@ module ConvergDB
       end
     end
 
-    class TestAWSGlueTablesModule < Minitest::Test
+    class TestAWSGlueTableModule < Minitest::Test
       # used to initialize the object for testing
       def initializer
         {
           resource_id: 'id123456',
           working_path: '/tmp',
-          region: '${var.region}'
+          region: '${var.region}',
+          structure: {
+            database_name: 'database_name',
+            table_name: 'table_name',
+            columns: [],
+            location: 'location',
+            input_format: 'input_format',
+            output_format: 'output_format',
+            compressed: 'compressed',
+            number_of_buckets: 'number_of_buckets',
+            ser_de_info_name: 'ser_de_info_name',
+            ser_de_info_serialization_library: 'ser_de_info_serialization_library',
+            bucket_columns: [],
+            sort_columns: [],
+            skewed_column_names: [],
+            skewed_column_value_location_maps: [],
+            skewed_column_values: [],
+            stored_as_sub_directories: 'stored_as_sub_directories',
+            partition_keys: [],
+            classification: 'classification',
+            convergdb_full_relation_name: 'convergdb_full_relation_name',
+            convergdb_dsd: 'convergdb_dsd',
+            convergdb_storage_bucket: 'convergdb_storage_bucket',
+            convergdb_state_bucket: 'convergdb_state_bucket',
+            convergdb_storage_format: 'convergdb_storage_format',
+            convergdb_etl_job_name: 'convergdb_etl_job_name',
+            convergdb_deployment_id: 'convergdb_deployment_id'
+          }
         }
       end
 
-      def aws_glue_tables_module
-        AWSGlueTablesModule.new(initializer)
+      def aws_glue_table_module
+        AWSGlueTableModule.new(initializer)
       end
 
       def test_initialize
-        t = aws_glue_tables_module
+        t = aws_glue_table_module
 
         assert_equal(
           initializer[:resource_id],
@@ -229,108 +256,55 @@ module ConvergDB
         )
         
         assert_equal(
-          ConvergDB::TERRAFORM_MODULES[:aws_athena_relations],
+          ConvergDB::TERRAFORM_MODULES[:aws_glue_table],
           t.source
-        )
-
-        assert_equal(
-          '/tmp/terraform/cloudformation/id123456.json',
-          t.local_stack_file_path
-        )
-
-        assert_equal(
-          './cloudformation/id123456.json',
-          t.local_stack_file_relative_path
-        )
-         
-        assert_equal(
-          {
-            "AWSTemplateFormatVersion" => "2010-09-09",
-            "Description" => "Create ConvergDB tables in Glue catalog",
-            "Resources" => {}
-          },
-          t.stack
-        )
-      end
-
-      def test_initialize_stack
-        t = aws_glue_tables_module
-
-        assert_equal(
-          {
-            "AWSTemplateFormatVersion" => "2010-09-09",
-            "Description" => "Create ConvergDB tables in Glue catalog",
-            "Resources" => {}
-          },
-          t.initialize_stack
-        )
-      end
-
-      def test_append_to_stack!
-        t = aws_glue_tables_module
-
-        a = { key: 'value' }
-        t.append_to_stack!(a)
-
-        assert_equal(
-          a,
-          t.stack['Resources']
-        )
-
-        b = { key2: 'value2' }
-        t.append_to_stack!(b)
-
-        assert_equal(
-          { key: 'value', key2: 'value2' },
-          t.stack['Resources']
         )
       end
 
       def test_validation_regex
         # this tests the hash contents, not the validation process
-        t = aws_glue_tables_module
+        t = aws_glue_table_module
         assert_equal(
           { regex: /.*/, mandatory: true },
           t.validation_regex[:resource_id]
         )
       end
 
-      def test_stack_to_file!
-        t = aws_glue_tables_module
-
-        path = '/tmp/convergdb/test.json'
-        stack = {'any' => 'json'}
-
-        t.stack_to_file!(
-          path,
-          stack
-        )
-
-        assert_equal(
-          %{{"any":"json"}\n},
-          File.read(path)
-        )
-      end
-
       def test_structure
-        t = aws_glue_tables_module
+        t = aws_glue_table_module
 
         expected = {
           resource_id: 'id123456',
-          resource_type: :aws_glue_tables_module,
+          resource_type: :aws_glue_table_module,
           structure: {
             module: {
               'id123456' => {
-                source: ConvergDB::TERRAFORM_MODULES[:aws_athena_relations],
-                region: '${var.region}',
-                stack_name: 'id123456',
-                deployment_id: %{${var.deployment_id}},
-                local_stack_file_path: './cloudformation/id123456.json',
-                s3_stack_key: %{${var.deployment_id}/cloudformation/id123456_${var.deployment_id}.json},
-                admin_bucket: %{${var.admin_bucket}},
-                data_bucket: %{${var.data_bucket}},
-                aws_account_id: '${data.aws_caller_identity.current.account_id}',
-                database_stack_id: "${module.convergdb_athena_databases_stack.database_stack_id}"
+                source: ConvergDB::TERRAFORM_MODULES[:aws_glue_table],
+                database_name: 'database_name',
+                table_name: 'table_name',
+                columns: [],
+                location: 'location',
+                input_format: 'input_format',
+                output_format: 'output_format',
+                compressed: 'compressed',
+                number_of_buckets: 'number_of_buckets',
+                ser_de_info_name: 'ser_de_info_name',
+                ser_de_info_serialization_library: 'ser_de_info_serialization_library',
+                bucket_columns: [],
+                sort_columns: [],
+                skewed_column_names: [],
+                skewed_column_value_location_maps: [],
+                skewed_column_values: [],
+                stored_as_sub_directories: 'stored_as_sub_directories',
+                partition_keys: [],
+                classification: 'classification',
+                convergdb_full_relation_name: 'convergdb_full_relation_name',
+                convergdb_dsd: 'convergdb_dsd',
+                convergdb_storage_bucket: 'convergdb_storage_bucket',
+                convergdb_state_bucket: 'convergdb_state_bucket',
+                convergdb_storage_format: 'convergdb_storage_format',
+                convergdb_etl_job_name: 'convergdb_etl_job_name',
+                convergdb_deployment_id: 'convergdb_deployment_id'
               }
             }
           }
@@ -348,6 +322,9 @@ module ConvergDB
         {
           resource_id: 'id123456',
           region: 'us-west-2',
+          structure: {
+            database_name: 'test'
+          }
         }
       end
 
@@ -369,50 +346,13 @@ module ConvergDB
         )
 
         assert_equal(
-          ConvergDB::TERRAFORM_MODULES[:aws_athena_database],
+          ConvergDB::TERRAFORM_MODULES[:aws_glue_database],
           t.source
         )
 
         assert_equal(
-          {
-            "AWSTemplateFormatVersion" => "2010-09-09",
-            "Description" => "Create ConvergDB databases in Glue catalog",
-            "Resources" => {}
-          },
-          t.stack
-        )
-      end
-
-      def test_initialize_stack
-        t = aws_glue_database_module
-
-        assert_equal(
-          {
-            "AWSTemplateFormatVersion" => "2010-09-09",
-            "Description" => "Create ConvergDB databases in Glue catalog",
-            "Resources" => {}
-          },
-          t.initialize_stack
-        )
-      end
-
-      def test_append_to_stack!
-        t = aws_glue_database_module
-
-        a = { key: 'value' }
-        t.append_to_stack!(a)
-
-        assert_equal(
-          a,
-          t.stack["Resources"]
-        )
-
-        b = { key2: 'value2' }
-        t.append_to_stack!(b)
-
-        assert_equal(
-          { key: 'value', key2: 'value2' },
-          t.stack["Resources"]
+          initializer[:structure][:database_name],
+          t.database_name
         )
       end
 
@@ -434,10 +374,9 @@ module ConvergDB
           structure: {
             module: {
               'id123456' => {
-                source: ConvergDB::TERRAFORM_MODULES[:aws_athena_database],
-                region: '${var.region}',
-                stack:  "{\"AWSTemplateFormatVersion\":\"2010-09-09\",\"Description\":\"Create ConvergDB databases in Glue catalog\",\"Resources\":{}}",
-                deployment_id: %{${var.deployment_id}}
+                source: ConvergDB::TERRAFORM_MODULES[:aws_glue_database],
+                database_name:  "test",
+                deployment_id: "${var.deployment_id}"
               }
             }
           }
@@ -740,7 +679,7 @@ module ConvergDB
           resource_id: 'id123456',
           region: 'us-west-2',
           structure: {
-            table: 'table1'
+            table_name: 'table1'
           }
         }
       end
@@ -750,7 +689,7 @@ module ConvergDB
           resource_id: 'id123456',
           region: 'us-west-2',
           structure: {
-            database: 'database1'
+            database_name: 'database1'
           }
         }
       end
@@ -828,7 +767,7 @@ module ConvergDB
         t.aws_glue_table_module!(aws_glue_table_params)
 
         assert_equal(
-          AWSGlueTablesModule,
+          AWSGlueTableModule,
           t.resource_by_id('id123456').class
         )
       end
@@ -839,13 +778,13 @@ module ConvergDB
         t.aws_glue_table_module!(aws_glue_table_params)
 
         assert_equal(
-          AWSGlueTablesModule,
+          AWSGlueTableModule,
           t.resources.first.class
         )
 
         assert_equal(
           'table1',
-          t.resources.first.stack['Resources'][:table]
+          t.resources.first.table_name
         )
       end
 
@@ -861,7 +800,7 @@ module ConvergDB
 
         assert_equal(
           'database1',
-          t.resources.first.stack['Resources'][:database]
+          t.resources.first.database_name
         )
       end
 

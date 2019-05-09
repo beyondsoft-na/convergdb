@@ -14,6 +14,7 @@ from sns import *
 from spark_partitions import *
 from spark import *
 from state import *
+from add_partitions import *
 
 # !HIGH LEVEL INTERACTIONS
 
@@ -100,10 +101,10 @@ def load_batch(sql_context, structure, diff, source_map_func, dpu):
         this_start_time,
         diff
       )
-      
+
       bytes_to_load_compressed = file_sizing(diff)
       convergdb_log("compressed byte size for this batch: " + str(bytes_to_load_compressed))
-      
+
       bytes_to_load_uncompressed_estimate = file_estimated_sizing(diff)
       convergdb_log("uncompressed byte estimate for this batch: " + str(bytes_to_load_uncompressed_estimate))
       data_load(
@@ -112,7 +113,7 @@ def load_batch(sql_context, structure, diff, source_map_func, dpu):
         s3a_list,
         None,
         this_batch_id,
-        
+
         # the following are used in calculating the number of spark partitions
         bytes_to_load_uncompressed_estimate,
         len(diff),
@@ -121,7 +122,12 @@ def load_batch(sql_context, structure, diff, source_map_func, dpu):
       )
 
       # refresh partitions
-      msck_repair_table(structure)
+      # msck_repair_table(structure)
+      update_all_partitions(
+        structure["storage_bucket"].split('/')[0],
+        '/'.join(structure["storage_bucket"].split('/')[1:]),
+        structure['region']
+      )
 
       this_end_time = time.gmtime()
 
@@ -175,7 +181,7 @@ def load_batch(sql_context, structure, diff, source_map_func, dpu):
         bytes_to_load_compressed,
         'Bytes'
       )
-       
+
       # log cloudwatch metrics
       put_cloudwatch_metric(
         structure["region"],
@@ -196,7 +202,7 @@ def load_batch(sql_context, structure, diff, source_map_func, dpu):
       )
     else:
       convergdb_log("no new data to load for relation: " + structure["full_relation_name"])
-      
+
       # log cloudwatch metrics
       put_cloudwatch_metric(
         structure["region"],
@@ -205,7 +211,7 @@ def load_batch(sql_context, structure, diff, source_map_func, dpu):
         1,
         'Count'
       )
-      
+
       publish_sns(
         structure["region"],
         structure["sns_topic"],
@@ -214,6 +220,43 @@ def load_batch(sql_context, structure, diff, source_map_func, dpu):
         "bytes processed: " + str(0) + "\n"# +
         "bytes processed (uncompressed estimate): " + str(0) + "\n"
       )
+
+# set s3 encrption in hadoop configuration
+def sse_config(sql_context, sse_algorithm, kms_master_key_id):
+  convergdb_log("setting s3 encrption in : " + sse_algorithm  + " algorithm")
+  if sse_algorithm != "":
+    if sse_algorithm == "aws:kms":
+      sse_algorithm = "SSE-KMS"
+    sql_context._jsc.hadoopConfiguration().set("fs.s3a.server-side-encryption-algorithm", sse_algorithm)
+  if kms_master_key_id != "":
+    convergdb_log("kms master key id is: " + kms_master_key_id)
+    sql_context._jsc.hadoopConfiguration().set("fs.s3a.server-side-encryption-key", kms_master_key_id)
+
+# set s3 bucket encrption algorithm, and master key id if using aws:kms method
+def set_bucket_sse(sql_context, bucket):
+  convergdb_log("get s3 bucket encrption : " + bucket)
+  try:
+    sse_algorithm = ""
+    kms_master_key_id = ""
+    s3 = boto3.client('s3')
+    bucket = bucket.split('/')[0]
+    response = s3.get_bucket_encryption(Bucket = bucket)
+    
+    if 'ServerSideEncryptionConfiguration' in response:
+      # Currently S3 supports one rule only.
+      if 'Rules' in response['ServerSideEncryptionConfiguration']:
+        rule = response['ServerSideEncryptionConfiguration']['Rules'][0]
+        if 'SSEAlgorithm' in rule['ApplyServerSideEncryptionByDefault']:
+          sse_algorithm = rule['ApplyServerSideEncryptionByDefault']['SSEAlgorithm']
+        if 'KMSMasterKeyID' in rule['ApplyServerSideEncryptionByDefault']:
+          kms_master_key_id = rule['ApplyServerSideEncryptionByDefault']['KMSMasterKeyID']
+        sse_config(sql_context, sse_algorithm, kms_master_key_id)
+  except Exception as e:
+    if 'ServerSideEncryptionConfigurationNotFoundError' in str(e):
+      convergdb_log("this bucket does not have SSE config")
+    else:
+      convergdb_log("error in getting bucket encryption")
+      raise
 
 # high level procedure transforms data from the source to the target,
 # using idempotent producer/consumer ETL pattern.
@@ -224,7 +267,11 @@ def source_to_target(sql_context, structure_json):
     structure = json.loads(structure_json)
     # start time is used for batch_id
     start_time = time.gmtime()
-    
+
+    # set storage bucket encrption for aws_fargate
+    if structure['etl_technology'] == 'aws_fargate':
+      set_bucket_sse(sql_context, structure["storage_bucket"])
+
     dpu = None
     # determine the number of DPUs applied to the current run
     if structure["etl_technology"] == 'aws_glue':
@@ -235,7 +282,7 @@ def source_to_target(sql_context, structure_json):
       convergdb_log("dpu for current_job: " + str(dpu))
     elif structure["etl_technology"] == 'aws_fargate':
       dpu = None
-  
+
     # gets a list of files from the diff process
     # this process may be API based or s3 inventory based
     diff = file_diff(
@@ -245,14 +292,14 @@ def source_to_target(sql_context, structure_json):
 
     source_bytes = file_sizing(diff)
     convergdb_log("total loadable bytes (compressed): " + str(source_bytes))
-  
+
     chunk_size = calculate_chunk_count(
       source_bytes,
       len(diff),
       dpu
     )
     convergdb_log("max files per batch: " + str(chunk_size))
-  
+
     # tuples of (lo, hi) index ranges for arrays.
     # note that these are correct, unlike python indexes.
     indices = split_indices(
@@ -282,7 +329,7 @@ def source_to_target(sql_context, structure_json):
         1,
         'Count'
       )
-  
+
       # send sns success message
       publish_sns(
         structure["region"],

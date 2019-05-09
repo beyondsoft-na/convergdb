@@ -1,7 +1,7 @@
 from convergdb_logging import *
 
 from batch_control import * # needs to be before the other modules
-
+from add_partitions import *
 from athena import *
 from cloudwatch import *
 from glue import *

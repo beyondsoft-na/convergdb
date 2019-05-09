@@ -170,10 +170,11 @@ module ConvergDB
         a = athena_generator
         assert_equal(
           {
-            resource_id: "convergdb_athena_databases_stack",
+            resource_id: a.terraform_builder.database_module_name('production__test_database__test_schema'),
             region: "${var.region}",
-            athena_database_tf_module_name: 'convergdb_athena_databases_stack',
-            structure: a.cfn_database_resource(a.structure)
+            structure: {
+              database_name: "production__test_database__test_schema"
+            }
           },
           a.aws_glue_database_module_params(a.structure)
         )
@@ -183,25 +184,15 @@ module ConvergDB
         a = athena_generator
         assert_equal(
           {
-            resource_id: a.aws_glue_table_module_resource_id(
-              a.structure[:full_relation_name]
-            ),
+            resource_id: a.structure[:full_relation_name],
             region: "${var.region}",
             athena_relation_module_name: a.terraform_builder.to_underscore(
               a.structure[:full_relation_name]
             ),
-            structure: a.cfn_table_resource(a.structure),
+            structure: a.table_parameters(a.structure),
             working_path: './'
           },
           a.aws_glue_table_module_params(a.structure, a.terraform_builder)
-        )
-      end
-
-      def test_athena_database_tf_module_name
-        a = athena_generator
-        assert_equal(
-          'convergdb_athena_databases_stack',
-          a.athena_database_tf_module_name
         )
       end
 
@@ -284,8 +275,7 @@ module ConvergDB
             convergdb_state_bucket: 'fakedata-state.beyondsoft.us',
             convergdb_storage_format: 'parquet',
             convergdb_etl_job_name: 'test_etl_job',
-            convergdb_deployment_id: %{${deployment_id}},
-            convergdb_database_cf_id: "${database_stack_id}"
+            convergdb_deployment_id: %{${var.deployment_id}}
           },
           a.tblproperties(a.structure)
         )
@@ -380,148 +370,6 @@ module ConvergDB
         )
       end
 
-      def test_cfn_table_resource
-        a = athena_generator
-        assertion = {
-          # resource name is hashed from the :full_relation_name to avoid conflicts
-          "convergdbTable#{Digest::SHA256.hexdigest(a.structure[:full_relation_name])}" => {
-            "Type" => "AWS::Glue::Table",
-            "Properties" => {
-              # terraform will populate this for you based upon the aws account
-              "CatalogId" => "${aws_account_id}",
-              "DatabaseName" => a.athena_database_name(a.structure),
-              "TableInput" => {
-                "StorageDescriptor" => {
-                  "OutputFormat" => a.output_format(a.structure[:storage_format]),
-                  "SortColumns" => [],
-                  "InputFormat" => a.input_format(a.structure[:storage_format]),
-                  "SerdeInfo" => {
-                    "SerializationLibrary" => a.serialization_library(
-                      a.structure[:storage_format]
-                    ),
-                    "Parameters" => {
-                      "serialization.format" => "1"
-                    }
-                  },
-                  "BucketColumns" => [],
-                  "Parameters" => {},
-                  "SkewedInfo" => {
-                    "SkewedColumnNames" => [],
-                    "SkewedColumnValueLocationMaps" => {},
-                    "SkewedColumnValues" => []},
-                  "Location" => a.s3_storage_location(a.structure),
-                  "NumberOfBuckets" => -1,
-                  "StoredAsSubDirectories" => false,
-                  "Columns" => [
-                    {
-                      'Name' => 'title',
-                      'Type' => a.athena_data_type('varchar(100)'),
-                      'Comment' => "#{Digest::MD5.new.hexdigest('title')}_#{Digest::MD5.new.hexdigest('varchar(100)')}"
-                    },
-                    {
-                      'Name' => 'author',
-                      'Type' => a.athena_data_type('varchar(100)'),
-                      'Comment' => "#{Digest::MD5.new.hexdigest('author')}_#{Digest::MD5.new.hexdigest('varchar(100)')}"
-                    },
-                    {
-                      'Name' => 'publisher',
-                      'Type' => a.athena_data_type('varchar(100)'),
-                      'Comment' => "#{Digest::MD5.new.hexdigest('publisher')}_#{Digest::MD5.new.hexdigest('varchar(100)')}"
-                    },
-                    {
-                      'Name' => 'genre',
-                      'Type' => a.athena_data_type('varchar(100)'),
-                      'Comment' => "#{Digest::MD5.new.hexdigest('genre')}_#{Digest::MD5.new.hexdigest('varchar(100)')}"
-                    }
-                  ],
-                  "Compressed" => false
-                },
-                "PartitionKeys" => [],
-                "Name" => a.table_name(a.structure[:full_relation_name]),
-                "Parameters" => a.tblproperties(a.structure),
-                "TableType" => "EXTERNAL_TABLE",
-                "Owner" => "hadoop",
-                "Retention" => 0
-              }
-            }
-          }
-        }
-        assert_equal(
-          assertion,
-          a.cfn_table_resource(a.structure),
-          puts(
-            HashDiff.diff(
-              assertion,
-              a.cfn_table_resource(a.structure)
-            )
-          )
-        )
-      end
-
-      def test_cfn_database_resource
-        a = athena_generator
-
-        assertion = {
-          # resource name is hashed from the :full_relation_name to avoid conflicts
-          "convergdbDatabase#{Digest::SHA256.hexdigest(a.athena_database_name(a.structure))}" => {
-            "Type" => "AWS::Glue::Database",
-            "Properties" => {
-              # terraform will populate this for you based upon the aws account
-              "CatalogId" => "${data.aws_caller_identity.current.account_id}",
-              "DatabaseInput" => {
-                "Name" => a.athena_database_name(a.structure),
-                "Parameters" => {
-                  "convergdb_deployment_id" => '${var.deployment_id}'
-                }
-              }
-            }
-          }
-        }
-
-        assert_equal(
-          assertion,
-          a.cfn_database_resource(a.structure),
-          puts(
-            HashDiff.diff(
-              assertion,
-              a.cfn_database_resource(a.structure)
-            )
-          )
-        )
-      end
-
-      def test_aws_glue_table_module_resource_id
-        a = athena_generator
-
-        [
-          {input: 'abc', expected: 'relations-10'},
-          {input: 'abc', expected: 'relations-10'},
-          {input: 'chicken', expected: 'relations-74'},
-          {input: 'environment.domain.schema.relation', expected: 'relations-68'}
-        ].each do |t|
-          assert_equal(
-            t[:expected],
-            a.aws_glue_table_module_resource_id(t[:input])
-          )
-        end
-      end
-
-      def test_aws_glue_table_module_resource_id_bucket
-        a = athena_generator
-
-        [
-          {input: 'abc', expected: '10'},
-          {input: 'abc', expected: '10'},
-          {input: 'chicken', expected: '74'},
-          {input: 'environment.domain.schema.relation', expected: '68'}
-        ].each do |t|
-          assert_equal(
-            t[:expected],
-            a.aws_glue_table_module_resource_id_bucket(t[:input])
-          )
-        end
-      end
-
       def test_non_partition_attributes
         a = athena_generator
 
@@ -545,6 +393,79 @@ module ConvergDB
         )
       end
 
+      def test_table_parameters
+        a = athena_generator
+        
+        expected = {
+          # database name uses module output to force
+          database_name: "${module.#{a.terraform_builder.database_module_name('production__test_database__test_schema')}.database_name}",
+          table_name: 'books_target',
+          columns: [
+            {
+              'name' => 'title',
+              'type' => a.athena_data_type('varchar(100)'),
+              'comment' => "#{Digest::MD5.new.hexdigest('title')}_#{Digest::MD5.new.hexdigest('varchar(100)')}"
+            },
+            {
+              'name' => 'author',
+              'type' => a.athena_data_type('varchar(100)'),
+              'comment' => "#{Digest::MD5.new.hexdigest('author')}_#{Digest::MD5.new.hexdigest('varchar(100)')}"
+            },
+            {
+              'name' => 'publisher',
+              'type' => a.athena_data_type('varchar(100)'),
+              'comment' => "#{Digest::MD5.new.hexdigest('publisher')}_#{Digest::MD5.new.hexdigest('varchar(100)')}"
+            },
+            {
+              'name' => 'genre',
+              'type' => a.athena_data_type('varchar(100)'),
+              'comment' => "#{Digest::MD5.new.hexdigest('genre')}_#{Digest::MD5.new.hexdigest('varchar(100)')}"
+            }
+          ],
+          location: "s3://fakedata-target.beyondsoft.us/",
+          input_format: 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat',
+          output_format: 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat',
+          compressed: false,
+          number_of_buckets: -1,
+          ser_de_info_name: 'parquet',
+          ser_de_info_serialization_library: 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe',
+          bucket_columns: [],
+          sort_columns: [],
+          skewed_column_names: [],
+          skewed_column_value_location_maps: {},
+          skewed_column_values: [],
+          stored_as_sub_directories: false,
+          partition_keys: [
+          ],
+          classification: 'parquet',
+          convergdb_full_relation_name: 'production.test_database.test_schema.books_target',
+          convergdb_dsd: 'test_database.test_schema.books_target',
+          convergdb_storage_bucket: 'fakedata-target.beyondsoft.us',
+          convergdb_state_bucket: 'fakedata-state.beyondsoft.us',
+          convergdb_storage_format: 'parquet',
+          convergdb_etl_job_name: 'test_etl_job',
+          convergdb_deployment_id: %(${var.deployment_id})
+        } 
+        
+        assert_equal(
+          expected,
+          a.table_parameters(a.structure)
+        ) 
+      end
+      
+      def test_database_parameters
+        a = athena_generator
+        
+        expected = {
+          database_name: "production__test_database__test_schema",
+        }
+        
+        assert_equal(
+          expected,
+          a.database_parameters(a.structure)
+        )
+      end
+          
       def test_partition_attributes
         a = athena_generator
 

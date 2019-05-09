@@ -233,12 +233,10 @@ module ConvergDB
 
         # dump all of the terraform resources created with the builder
         # into a tf.json file.
-        f = File.open("#{terraform_directory_path(working_path(@structure))}/deployment.tf.json", 'w')
-        f.puts "{"
+        f = File.open("#{terraform_directory_path(working_path(@structure))}/deployment.tf", 'w')
         @terraform_builder.resources.each do |r|
-          f.puts(r.tf_json)
+          f.puts(r.tf_hcl)
         end
-        f.puts "}"
         f.close
       end
 

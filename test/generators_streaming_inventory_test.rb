@@ -119,15 +119,6 @@ module ConvergDB
         )
       end
 
-      def test_athena_database_tf_module_name
-        t = streaming_inventory_generator
-
-        assert_equal(
-          'convergdb_athena_databases_stack',
-          t.athena_database_tf_module_name
-        )
-      end
-
       def test_table_name
         a = streaming_inventory_generator
 
@@ -173,9 +164,9 @@ module ConvergDB
           },
           {
             input: s3_storage_location_structure(
-              '${var.admin_bucket}/$(var.deployment_id}'
+              '${var.admin_bucket}/${var.deployment_id}'
             ),
-            expected: 's3://${admin_bucket}/$(deployment_id}'
+            expected: 's3://${var.admin_bucket}/${var.deployment_id}'
           }
         ].each do |i|
           assert_equal(
@@ -193,9 +184,7 @@ module ConvergDB
           EXTERNAL: 'TRUE',
           convergdb_storage_format: 'json',
           convergdb_etl_job_name: '',
-          convergdb_deployment_id: %(${deployment_id}),
-          convergdb_database_cf_id:
-            %(${database_stack_id})
+          convergdb_deployment_id: %(${var.deployment_id})
         }
 
         assert_equal(
@@ -207,102 +196,8 @@ module ConvergDB
       def test_athena_database_name
         t = streaming_inventory_generator
         assert_equal(
-          "convergdb_inventory_${deployment_id}",
-          t.athena_database_name
-        )
-      end
-
-      def test_database_name
-        t = streaming_inventory_generator
-        assert_equal(
           "convergdb_inventory_${var.deployment_id}",
-          t.database_name
-        )
-      end
-
-      def test_cfn_table_resource
-        t = streaming_inventory_generator
-
-        expected = {
-          # hashed from the :full_relation_name to avoid conflicts
-          %(convergdbInventoryTablebb5ac62c5d4a9de00207f1add822b2c8d4cdeb48c62f226fbdbe3bd491c5a0f0) => {
-            'Type' => 'AWS::Glue::Table',
-            'Properties' => {
-              # terraform will populate this for you based upon the aws account
-              'CatalogId' => '${aws_account_id}',
-              'DatabaseName' => "convergdb_inventory_${deployment_id}",
-              'TableInput' => {
-                'StorageDescriptor' => {
-                  'OutputFormat' => t.output_format('json'),
-                  'SortColumns' => [],
-                  'InputFormat' => t.input_format('json'),
-                  'SerdeInfo' => {
-                    'SerializationLibrary' => t.serialization_library(
-                      'json'
-                    ),
-                    'Parameters' => {
-                      'serialization.format' => '1'
-                    }
-                  },
-                  'BucketColumns' => [],
-                  'Parameters' => {},
-                  'SkewedInfo' => {
-                    'SkewedColumnNames' => [],
-                    'SkewedColumnValueLocationMaps' => {},
-                    'SkewedColumnValues' => []
-                  },
-                  'Location' => "s3://bucket/location",
-                  'NumberOfBuckets' => -1,
-                  'StoredAsSubDirectories' => false,
-                  'Columns' => t.streaming_inventory_attributes.map do |a|
-                    {
-                      'Name' => a[:name],
-                      'Type' => t.athena_data_type(a[:data_type]),
-                      'Comment' => a[:expression] || ''
-                    }
-                  end,
-                  'Compressed' => false
-                },
-                'PartitionKeys' => [],
-                'Name' => 'fakedata__source__beyondsoft__us',
-                # 'Parameters' => tblproperties(structure),
-                'TableType' => 'EXTERNAL_TABLE',
-                'Owner' => 'hadoop',
-                'Retention' => 0
-              }
-            }
-          }
-        }
-
-        assert_equal(
-          expected,
-          t.cfn_table_resource(t.structure)
-        )
-      end
-
-      def test_cfn_database_resource
-        t = streaming_inventory_generator
-        expected = {
-          # hashed from the :full_relation_name to avoid conflicts
-          %(convergdbInventoryDatabase${var.deployment_id}) =>
-          {
-            'Type' => 'AWS::Glue::Database',
-            'Properties' => {
-              # terraform will populate this for you based upon the aws account
-              'CatalogId' => '${data.aws_caller_identity.current.account_id}',
-              'DatabaseInput' => {
-                'Name' => "convergdb_inventory_${var.deployment_id}",
-                'Parameters' => {
-                  'convergdb_deployment_id' =>
-                    '${var.deployment_id}'
-                }
-              }
-            }
-          }
-        }
-        assert_equal(
-          expected,
-          t.cfn_database_resource(t.structure)
+          t.athena_database_name(nil)
         )
       end
 

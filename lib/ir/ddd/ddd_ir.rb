@@ -254,7 +254,7 @@ module ConvergDB
         unless @streaming_inventory_table
           if @streaming_inventory == 'true'
             if @storage_bucket
-              database = "convergdb_inventory_${deployment_id}"
+              database = "convergdb_inventory_${var.deployment_id}"
               a = @storage_bucket.split('/')[0].gsub(/(\.|\-)/, '__')
               @streaming_inventory_table = "#{database}.#{a}"
             else
@@ -733,13 +733,13 @@ module ConvergDB
 
         # buckets will default if not specified
         # used in module definition
-        @script_bucket ||= "${admin_bucket}"
+        @script_bucket ||= "${var.admin_bucket}"
 
         # used inside a template_file
-        @state_bucket ||= "${admin_bucket}"
+        @state_bucket ||= "${var.admin_bucket}"
 
         # used inside a template_file
-        @storage_bucket ||= "${data_bucket}/${deployment_id}/#{@full_relation_name}"
+        @storage_bucket ||= "${var.data_bucket}/${var.deployment_id}/#{@full_relation_name}"
 
         # only ever pulls from parent
         @etl_job_name = @parent.etl_job_name

@@ -489,7 +489,7 @@ module ConvergDB
           source.each do |file|
             tokens.pop unless tokens.empty?
             tokens += ConvergDB::DSD::Lexer.lex_file(file)
-            puts(file + "-token array length: "+tokens.length.to_s)
+            # puts(file + "-token array length: "+tokens.length.to_s)
           end
           tokens
         end

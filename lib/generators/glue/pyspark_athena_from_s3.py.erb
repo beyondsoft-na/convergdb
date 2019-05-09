@@ -1,6 +1,6 @@
 convergdb.source_from_target(
   sql_context(),
 """
-<%= JSON.pretty_generate(structure) %>
+<%= JSON.pretty_generate(structure).gsub('${var.', '${') %>
 """
 )

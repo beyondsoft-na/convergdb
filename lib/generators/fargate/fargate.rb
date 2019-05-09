@@ -249,7 +249,7 @@ module ConvergDB
         ret << 'convergdb.source_to_target('
         ret << '  sql_context(),'
         ret << '"""'
-        ret << JSON.pretty_generate(script_structure(structure))
+        ret << JSON.pretty_generate(script_structure(structure)).gsub('${var.','${')
         ret << '"""'
         ret << ')'
         ret.join("\n")

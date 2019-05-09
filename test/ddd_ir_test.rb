@@ -1068,7 +1068,7 @@ module ConvergDB
         )
 
         assert_equal(
-          'convergdb_inventory_${deployment_id}.bucket__name',
+          'convergdb_inventory_${var.deployment_id}.bucket__name',
           t[:relation].streaming_inventory_table
         )
 
