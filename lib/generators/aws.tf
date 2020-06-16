@@ -1,5 +1,5 @@
 provider "aws" {
-  region = "${var.region}"
+  region = var.region
 }
 
 data "aws_caller_identity" "current" {}
@@ -9,7 +9,7 @@ resource "aws_sns_topic" "convergdb-notifications" {
 }
 
 resource "aws_cloudwatch_dashboard" "dashboard" {
-  provider       = "aws"
+  provider       = aws
   dashboard_name = "convergdb-${var.deployment_id}"
 
   dashboard_body = <<BODY

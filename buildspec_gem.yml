@@ -1,0 +1,24 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - gem uninstall -x -i /opt/jruby/lib/ruby/gems/shared bundler
+      - gem install bundler --version 1.15.4
+      - gem install warbler
+  pre_build:
+    commands:
+      - bundle install
+  build:
+    commands:
+      - bundle exec gem build convergdb.gemspec
+      - warble
+artifacts:
+  files:
+    - buildspec_integration.yml
+    - convergdb-*-java.gem
+    - src.jar
+    - bin/*
+    - test/fixtures/bin/*
+    - test/fixtures/integration_test_*/**/*
+
