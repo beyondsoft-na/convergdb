@@ -1,0 +1,18 @@
+version: 0.2
+
+env:
+  variables:
+    TESTOPTS: "--ci-dir=reports"
+phases:
+  install:
+    commands:
+      - gem install bundler
+  pre_build:
+    commands:
+      - bundle install
+  build:
+    commands:
+      - bundle exec rake test
+artifacts:
+  files:
+    - test/reports/**

@@ -1,0 +1,19 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - echo "Integration Test started on:" `date`
+  build:
+    commands:
+      - mv ${CODEBUILD_SRC_DIR}/src.jar ${CODEBUILD_SRC_DIR}/spaces_gem.jar
+      - cd ${CODEBUILD_SRC_DIR} && git clone https://git-codecommit.us-west-2.amazonaws.com/v1/repos/convergdb_integration_tests 
+      - sh ${CODEBUILD_SRC_DIR}/convergdb_integration_tests/test_01/integrationtest.sh
+  post_build:
+    commands:
+      - cd ${CODEBUILD_SRC_DIR}/convergdb_integration_tests/test_01 && sh destroy.sh
+      - echo "Integration Test completed on:" `date`
+artifacts:
+  files:
+    - spaces_gem.jar
+    - bin/*

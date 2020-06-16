@@ -17,10 +17,10 @@
 
 module ConvergDB
   # version number for this gem
-  VERSION = '0.0.6.16'
+  VERSION = '0.0.6.17'
   
   # commit associated with this version of convergdb
-  TERRAFORM_MODULES_COMMIT_ID = '3e96a517915008f8ed965a498a24864b71d8531e'
+  TERRAFORM_MODULES_COMMIT_ID = '8c12cece6ce6c54ac89c165fff36441c6be2162e'
 
   TERRAFORM_MODULES = {
     aws_athena_database: "github.com/beyondsoft-na/convergdb-terraform//aws_athena_database?ref=#{ConvergDB::TERRAFORM_MODULES_COMMIT_ID}",
