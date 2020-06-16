@@ -8,6 +8,7 @@ phases:
       - gem install warbler
   pre_build:
     commands:
+      - gem install thor --version 0.20
       - bundle install
   build:
     commands:
