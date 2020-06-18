@@ -14,7 +14,6 @@ phases:
     commands:
       - bundle exec gem build convergdb.gemspec
       - warble
-      - ls
 artifacts:
   files:
     - buildspec_integration.yml
