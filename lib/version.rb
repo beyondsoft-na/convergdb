@@ -20,7 +20,7 @@ module ConvergDB
   VERSION = '0.0.6.17'
   
   # commit associated with this version of convergdb
-  TERRAFORM_MODULES_COMMIT_ID = '2e4c987798bc5f1c19f9f41f0e6bc0f3bc364e6b'
+  TERRAFORM_MODULES_COMMIT_ID = 'f5c79047d35382b102af30608e7de5a4062dd3fa'
 
   TERRAFORM_MODULES = {
     aws_athena_database: "github.com/beyondsoft-na/convergdb-terraform//aws_athena_database?ref=#{ConvergDB::TERRAFORM_MODULES_COMMIT_ID}",
