@@ -15,6 +15,8 @@ phases:
       # - sh ${CODEBUILD_SRC_DIR}/convergdb_integration_tests/test_01/integrationtest.sh
   post_build:
     commands:
+      - export TAG_VERSION=`awk '/VERSION/{print $NF}' lib/version.rb | sed -e "s/^'//" -e "s/'$//"`
+      - echo $TAG_VERSION
       - git tag 0.0.6.xx
       - git tag
       - git push --tags origin master
