@@ -1,6 +1,10 @@
 version: 0.2
 
 phases:
+  install:
+    commands:
+      - git config --global credential.helper
+      - git config --global credential.UseHttpPath true
   build:
     commands:
       - ls
@@ -11,6 +15,7 @@ phases:
     commands:
       - git tag 0.0.6.xx
       - git tag
+      - git push --tags origin master
       # - cd ${CODEBUILD_SRC_DIR}/convergdb_integration_tests/test_01 && sh destroy.sh
       # - echo "Integration Test completed on:" `date`
 # artifacts:
