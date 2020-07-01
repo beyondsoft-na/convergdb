@@ -10,7 +10,7 @@ phases:
   post_build:
     commands:
       - git tag 0.0.6.xx
-      - git push --tags origin master
+      - git tag
       # - cd ${CODEBUILD_SRC_DIR}/convergdb_integration_tests/test_01 && sh destroy.sh
       # - echo "Integration Test completed on:" `date`
 # artifacts:
