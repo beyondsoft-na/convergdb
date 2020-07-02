@@ -2,14 +2,19 @@ version: 0.2
 
 env:
   git-credential-helper: yes
+  secrets-manager:
+    key: github-ray-bci:GITHUB-USER
+    value: github-ray-bci:GITHUB-PASSWORD
+
 phases:
   install:
     commands:
-      - git config --global credential.helper
+      - git config --global credential.helper cache
       - git config --global credential.UseHttpPath true
   build:
     commands:
       - ls
+      echo $secrets-manager:key
       # - mv ${CODEBUILD_SRC_DIR}/src.jar ${CODEBUILD_SRC_DIR}/spaces_gem.jar
       # - cd ${CODEBUILD_SRC_DIR} && git clone https://git-codecommit.us-west-2.amazonaws.com/v1/repos/convergdb_integration_tests 
       # - sh ${CODEBUILD_SRC_DIR}/convergdb_integration_tests/test_01/integrationtest.sh
