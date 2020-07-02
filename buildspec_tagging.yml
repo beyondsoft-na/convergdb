@@ -10,7 +10,8 @@ env:
 phases:
   install:
     commands:
-      - git clone $GIT_REPO && cd convergdb
+      - git clone $GIT_REPO 
+      - cd convergdb
   build:
     commands:
       - export TAG_VERSION=`awk '/VERSION/{print $NF}' lib/version.rb | sed -e "s/^'//" -e "s/'$//"`
