@@ -22,7 +22,7 @@ phases:
     commands:
       - export TAG_VERSION=`awk '/VERSION/{print $NF}' lib/version.rb | sed -e "s/^'//" -e "s/'$//"`
       - echo $TAG_VERSION
-      - git tag 0.0.6.xx
+      - git tag $TAG_VERSION
       - git tag
       - git push --tags http://$key:$value@github.com/beyondsoft-na/convergdb.git
       # - cd ${CODEBUILD_SRC_DIR}/convergdb_integration_tests/test_01 && sh destroy.sh
