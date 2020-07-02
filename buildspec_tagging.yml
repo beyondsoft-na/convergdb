@@ -9,7 +9,7 @@ env:
 phases:
   install:
     commands:
-      - git config --global credential.helper cache
+      - git config --global credential.helper
       - git config --global credential.UseHttpPath true
   build:
     commands:
