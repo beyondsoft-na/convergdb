@@ -14,7 +14,7 @@ phases:
   build:
     commands:
       - ls
-      - echo $secrets-manager:key
+      - echo $key
       # - mv ${CODEBUILD_SRC_DIR}/src.jar ${CODEBUILD_SRC_DIR}/spaces_gem.jar
       # - cd ${CODEBUILD_SRC_DIR} && git clone https://git-codecommit.us-west-2.amazonaws.com/v1/repos/convergdb_integration_tests 
       # - sh ${CODEBUILD_SRC_DIR}/convergdb_integration_tests/test_01/integrationtest.sh
@@ -24,7 +24,8 @@ phases:
       - echo $TAG_VERSION
       - git tag 0.0.6.xx
       - git tag
-      - git push --tags origin master
+      - git remote -v
+#       - git push --tags origin master
       # - cd ${CODEBUILD_SRC_DIR}/convergdb_integration_tests/test_01 && sh destroy.sh
       # - echo "Integration Test completed on:" `date`
 # artifacts:
