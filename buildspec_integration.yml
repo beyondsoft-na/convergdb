@@ -17,3 +17,4 @@ artifacts:
   files:
     - spaces_gem.jar
     - bin/*
+    - buildspec_tagging.yml
