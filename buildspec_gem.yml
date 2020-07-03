@@ -17,6 +17,7 @@ phases:
 artifacts:
   files:
     - buildspec_integration.yml
+    - buildspec_tagging.yml
     - convergdb-*-java.gem
     - src.jar
     - bin/*
